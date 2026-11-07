@@ -1,0 +1,44 @@
+"""Model: user_subscriptions. Mẫu: đọc quyền truy cập còn hiệu lực của user."""
+
+from datetime import UTC, datetime
+from uuid import UUID
+
+from sqlalchemy import or_, select, update
+from sqlalchemy.orm import Session
+
+from app.models import UserSubscription
+from app.models.enums import SubscriptionStatus
+from app.modules.users.user import get_active_user
+
+
+def list_my_active_subscriptions(session: Session, user_id: UUID) -> list[UserSubscription]:
+    get_active_user(session, user_id)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    statement = (
+        select(UserSubscription)
+        .where(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == SubscriptionStatus.ACTIVE,
+            UserSubscription.activated_at <= now,
+            or_(UserSubscription.expired_at.is_(None), UserSubscription.expired_at > now),
+        )
+        .order_by(UserSubscription.activated_at.desc(), UserSubscription.id)
+    )
+    return list(session.scalars(statement))
+
+
+def expire_subscriptions(session: Session, admin_id: UUID) -> int:
+    from app.models.enums import UserRole
+
+    admin = get_active_user(session, admin_id)
+    if admin.role not in {UserRole.ADMIN, UserRole.HEAD_ADMIN}:
+        raise PermissionError("Administrator role required")
+    result = session.execute(
+        update(UserSubscription)
+        .where(
+            UserSubscription.status == SubscriptionStatus.ACTIVE,
+            UserSubscription.expired_at <= datetime.now(UTC).replace(tzinfo=None),
+        )
+        .values(status=SubscriptionStatus.EXPIRED)
+    )
+    return result.rowcount

@@ -1,0 +1,145 @@
+import { Catalog } from './Learning.jsx'
+import Icon from './Icon.jsx'
+import SiteLink from './SiteLink.jsx'
+import ThemeScene from './ThemeScene.jsx'
+
+export default function Home({ api, user, onLogin, onPurchased }) {
+  return (
+    <>
+      <section className="hero">
+        <div className="hero-copy">
+          <p className="hero-kicker">
+            <span />
+            HÀNH TRÌNH HỌC TẬP, THEO CÁCH CỦA BẠN
+          </p>
+          <h1>
+            Học đúng cách.
+            <br />
+            Tiến xa <span>mỗi ngày.</span>
+          </h1>
+          <p className="hero-description">
+            Từ điều bạn muốn biết đến điều bạn có thể làm. Khám phá khóa học, tìm gia sư phù hợp và
+            xây dựng bước tiến của riêng mình.
+          </p>
+          <div className="hero-actions">
+            <SiteLink className="button primary button-lg" href={user ? '/learning' : '/courses'}>
+              {user ? 'Tiếp tục việc học' : 'Khám phá khóa học'}
+              <Icon name="arrow" size={19} />
+            </SiteLink>
+            <SiteLink className="button button-lg" href="/tutoring">
+              <Icon name="users" size={19} />
+              Tìm gia sư đồng hành
+            </SiteLink>
+          </div>
+          <div className="hero-footnote">
+            <span className="mini-icon">
+              <Icon name="check" size={14} />
+            </span>
+            Học linh hoạt<span className="dot-separator">·</span>Kết nối trực tiếp
+            <span className="dot-separator">·</span>Theo dõi tiến bộ
+          </div>
+        </div>
+        <div className="journey-visual">
+          <div className="journey-topline">
+            <span>
+              <span className="online-dot" />
+              KHÔNG GIAN HỌC TẬP
+            </span>
+            <Icon name="spark" size={20} />
+          </div>
+          <ThemeScene className="journey-scene" />
+          <div className="journey-title">
+            <span>LỘ TRÌNH GỢI Ý</span>
+            <h2>
+              <span className="theme-light-only">
+                Ươm mầm tri thức.
+                <br />
+                Vững bước ngày mai.
+              </span>
+              <span className="theme-dark-only">
+                Khơi mở tri thức.
+                <br />
+                Vươn tới chân trời mới.
+              </span>
+            </h2>
+          </div>
+          <div className="journey-steps">
+            {[
+              ['01', '/courses', 'book', 'Chọn điều bạn muốn học'],
+              ['02', '/tutoring', 'users', 'Tìm người cùng đồng hành'],
+              ['03', '/community', 'chat', 'Chia sẻ và cùng tiến bộ'],
+            ].map(([number, href, icon, label]) => (
+              <SiteLink href={href} key={number}>
+                <span className="step-number">{number}</span>
+                <Icon name={icon} size={18} />
+                <strong>{label}</strong>
+                <Icon name="arrow" size={15} />
+              </SiteLink>
+            ))}
+          </div>
+        </div>
+      </section>
+      <div className="learning-paths">
+        {[
+          ['video', '/courses', 'Chủ động việc học', 'Khám phá bài giảng và học theo nhịp riêng.'],
+          [
+            'users',
+            '/tutoring',
+            'Một người đồng hành',
+            'Gia sư phù hợp cho từng mục tiêu học tập.',
+          ],
+          [
+            'chat',
+            '/community',
+            'Thêm một góc nhìn',
+            'Trao đổi, đặt câu hỏi và sẻ chia kiến thức.',
+          ],
+        ].map(([icon, href, title, text], index) => (
+          <SiteLink href={href} key={icon}>
+            <span className={`feature-icon feature-${icon}`}>
+              <Icon name={icon} size={23} />
+            </span>
+            <span className="path-number">0{index + 1}</span>
+            <h3>{title}</h3>
+            <p>{text}</p>
+            <span className="path-link">
+              Khám phá
+              <Icon name="arrow" size={16} />
+            </span>
+          </SiteLink>
+        ))}
+      </div>
+      <Catalog api={api} user={user} onLogin={onLogin} onPurchased={onPurchased} featured />
+      <section className="community-banner">
+        <div>
+          <span className="eyebrow">MỖI CÂU HỎI ĐỀU LÀ MỘT KHỞI ĐẦU</span>
+          <h2>
+            Kiến thức tốt hơn
+            <br />
+            khi được sẻ chia.
+          </h2>
+          <p>
+            Chia sẻ điều bạn biết. Khám phá điều bạn chưa biết.
+            <br />
+            Tìm động lực từ một cộng đồng cùng học hỏi.
+          </p>
+          <SiteLink href="/community" className="button primary">
+            Khám phá cộng đồng
+            <Icon name="arrow" size={18} />
+          </SiteLink>
+        </div>
+        <div className="community-illustration" aria-hidden="true">
+          <div className="community-bubble bubble-one">
+            <Icon name="chat" size={37} />
+            <span>Mình cùng tìm hiểu nhé!</span>
+          </div>
+          <div className="community-bubble bubble-two">
+            <Icon name="spark" size={31} />
+            <span>Thêm một góc nhìn mới.</span>
+          </div>
+          <span className="community-spark">✦</span>
+        </div>
+      </section>
+    </>
+  )
+}

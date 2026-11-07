@@ -1,0 +1,42 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.local/
+.vercel/
+.test-tmp/
+
+# Python environments, builds and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# Frontend dependencies and generated assets
+node_modules/
+coverage/
+
+# Runtime files and backups
+uploads/
+backups/
+*.log
+*.dump
+*.sqlite3
+*.sqlite3-journal
+.DS_Store
+Thumbs.db

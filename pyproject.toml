@@ -1,0 +1,15 @@
+[tool.ruff]
+# Keep compatible syntax for existing Python 3.13 local environments.
+target-version = "py313"
+line-length = 100
+extend-exclude = ["backend/migrations/versions", ".local"]
+
+[tool.ruff.lint]
+select = ["F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+line-ending = "lf"
