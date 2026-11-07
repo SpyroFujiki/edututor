@@ -86,9 +86,11 @@ môi trường sandbox. Đối chiếu mã đơn/số tiền với
 Kiểm tra giao dịch thành công cộng đúng credit một lần, hủy/thất bại không cộng
 credit, callback lặp không cộng lại và Return URL không tự cộng ví khi IPN đến chậm.
 
-Luồng giao diện: **Ví → chọn gói nạp → VNPAY sandbox → tạo đơn → mở VNPAY**.
-Cổng thanh toán được mở ở tab riêng để giữ phiên trong tab Tutor Web ban đầu.
-Sau thanh toán, quay lại mục Ví và cập nhật số dư/đơn.
+Luồng giao diện: **Ví → chọn VNPAY trong Nạp credit → chọn gói → xác nhận trong
+pop-up → mở VNPAY**. Cổng thanh toán dùng cùng tab; Return URL đưa người dùng
+về EduTutor để xem kết quả. VNPAY luôn có trong danh sách phương thức; khi chưa
+khả dụng thì bị vô hiệu hóa, chuyển khoản vẫn dùng được. Khi chưa có gói nạp,
+quản trị thêm gói trong mục quản lý gói credit trước khi tạo đơn.
 
 Ví tự làm mới số dư và đơn mỗi 15 giây khi trang đang hiển thị. Đơn VNPAY
 thành công được cập nhật `success` và cộng credit ngay trong transaction xử lý

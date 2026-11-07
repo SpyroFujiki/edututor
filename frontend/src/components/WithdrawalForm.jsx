@@ -3,12 +3,7 @@ import { money, numberField } from './workspace-utils.js'
 
 export default function WithdrawalForm({ wallets, banks, onSubmit }) {
   const wallet = wallets.find((row) => row.type === 'commercial')
-  if (!wallet)
-    return (
-      <p className="muted">
-        Ví cá nhân không hỗ trợ rút tiền. Chức năng này chỉ dành cho ví gia sư.
-      </p>
-    )
+  if (!wallet) return null
   if (!wallet.is_active) return <p className="muted">Ví gia sư đang khóa nên chưa thể rút tiền.</p>
   if (wallet.debt > 0)
     return <p className="muted">Bạn cần thanh toán hết công nợ ví gia sư trước khi rút tiền.</p>
@@ -43,5 +38,26 @@ export default function WithdrawalForm({ wallets, banks, onSubmit }) {
         }
       />
     </>
+  )
+}
+
+export function WithdrawalPanel({ wallets, banks, loading, error, onReload, onSubmit }) {
+  if (!wallets.some((row) => row.type === 'commercial')) return null
+  return (
+    <section className="card card-body">
+      <h2>Yêu cầu rút tiền</h2>
+      <p>Quy đổi rút: 1 credit = 1 VND.</p>
+      {loading ? (
+        <p role="status" className="muted">
+          Đang tải thông tin rút tiền…
+        </p>
+      ) : error ? (
+        <p role="alert">
+          Chưa tải được thông tin rút tiền. <button onClick={onReload}>Thử lại</button>
+        </p>
+      ) : (
+        <WithdrawalForm wallets={wallets} banks={banks} onSubmit={onSubmit} />
+      )}
+    </section>
   )
 }

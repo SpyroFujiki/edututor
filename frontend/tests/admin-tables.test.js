@@ -14,7 +14,11 @@ const { default: AuditLogs } = await server.ssrLoadModule('/src/components/Audit
 const { default: AuditLogFilters } = await server.ssrLoadModule(
   '/src/components/AuditLogFilters.jsx',
 )
-const { default: WithdrawalForm } = await server.ssrLoadModule('/src/components/WithdrawalForm.jsx')
+const { default: WithdrawalForm, WithdrawalPanel } = await server.ssrLoadModule(
+  '/src/components/WithdrawalForm.jsx',
+)
+const { default: PaymentMethods } = await server.ssrLoadModule('/src/components/PaymentMethods.jsx')
+const { Form } = await server.ssrLoadModule('/src/components/Workspace.jsx')
 const { default: LessonMedia } = await server.ssrLoadModule('/src/components/LessonMedia.jsx')
 const { default: Avatar } = await server.ssrLoadModule('/src/components/Avatar.jsx')
 const { AvatarDialog } = await server.ssrLoadModule('/src/components/AvatarEditor.jsx')
@@ -156,8 +160,11 @@ test('withdrawal UI excludes normal wallets and allows only an eligible commerci
   const blocked = renderToStaticMarkup(
     createElement(WithdrawalForm, { wallets: [normal], banks, onSubmit() {} }),
   )
-  assert.doesNotMatch(blocked, /<form/)
-  assert.match(blocked, /Ví cá nhân không hỗ trợ rút tiền/)
+  assert.equal(blocked, '')
+  const hiddenPanel = renderToStaticMarkup(
+    createElement(WithdrawalPanel, { wallets: [normal], banks, loading: false, onSubmit() {} }),
+  )
+  assert.equal(hiddenPanel, '')
   const commercial = {
     id: 'commercial-1',
     type: 'commercial',
@@ -170,8 +177,67 @@ test('withdrawal UI excludes normal wallets and allows only an eligible commerci
   )
   assert.match(eligible, /Tạo đơn rút/)
   assert.doesNotMatch(eligible, /value="normal"/)
+  const commercialPanel = renderToStaticMarkup(
+    createElement(WithdrawalPanel, { wallets: [normal, commercial], banks, onSubmit() {} }),
+  )
+  assert.match(commercialPanel, /Yêu cầu rút tiền/)
+  assert.match(commercialPanel, /Tạo đơn rút/)
   const debt = renderToStaticMarkup(
     createElement(WithdrawalForm, { wallets: [{ ...commercial, debt: 10 }], banks, onSubmit() {} }),
   )
   assert.doesNotMatch(debt, /<form/)
+})
+
+test('VNPAY is a visible selectable payment method when available', () => {
+  const html = renderToStaticMarkup(
+    createElement(PaymentMethods, {
+      resource: { data: { enabled: true, sandbox: true } },
+      value: 'vnpay',
+      onChange() {},
+    }),
+  )
+  assert.match(html, /Phương thức thanh toán/)
+  assert.match(html, /VNPAY/)
+  assert.match(html, /Chuyển khoản/)
+  const vnpayInput = html.match(/<input[^>]*value="vnpay"[^>]*>/)?.[0]
+  assert.ok(vnpayInput)
+  assert.doesNotMatch(vnpayInput, /disabled/)
+  assert.match(vnpayInput, /checked/)
+  const submitting = renderToStaticMarkup(
+    createElement(PaymentMethods, {
+      resource: { data: { enabled: true } },
+      value: 'vnpay',
+      disabled: true,
+      onChange() {},
+    }),
+  )
+  assert.match(submitting, /<fieldset[^>]*disabled=""/)
+})
+
+test('unavailable, loading or failed VNPAY remains visible without enabling checkout', () => {
+  for (const resource of [
+    { data: { enabled: false } },
+    { loading: true },
+    { data: { enabled: true }, error: 'request failed', reload() {} },
+  ]) {
+    const html = renderToStaticMarkup(
+      createElement(PaymentMethods, {
+        resource,
+        value: 'manual',
+        onChange() {},
+      }),
+    )
+    assert.match(html, /VNPAY/)
+    assert.match(html.match(/<input[^>]*value="vnpay"[^>]*>/)?.[0] ?? '', /disabled/)
+    assert.doesNotMatch(html.match(/<input[^>]*value="manual"[^>]*>/)?.[0] ?? '', /disabled/)
+  }
+  const form = renderToStaticMarkup(
+    createElement(Form, {
+      fields: [],
+      disabled: true,
+      submit: 'Tiếp tục với VNPAY',
+      onSubmit() {},
+    }),
+  )
+  assert.match(form, /<fieldset disabled=""/)
 })

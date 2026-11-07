@@ -84,6 +84,13 @@ Migration `0004_user_full_name` bổ sung họ tên. Người dùng cũ cập nh
 tại Tài khoản; đăng ký mới có trường họ tên. Họ tên hiển thị trong tài khoản,
 menu, danh sách người dùng, lựa chọn gia sư và danh tính trong nhật ký.
 
+Ví hiển thị lựa chọn VNPAY và chuyển khoản ngay trong phần Nạp credit, trước
+khi chọn gói. Xác nhận nạp và liên kết sang VNPAY mở trong pop-up; cổng thanh
+toán dùng cùng tab. Trạng thái VNPAY tự cập nhật mỗi 15 giây; nếu chưa khả dụng,
+lựa chọn vẫn hiển thị nhưng không cho gửi đơn. Khi đang tạo đơn, khóa các lựa
+chọn để tránh gửi đồng thời hai phương thức. Nếu chưa có gói nạp, quản trị có
+liên kết đến mục quản lý gói. Ví cá nhân không hiện khối rút tiền/ngân hàng nhận.
+
 Ví tự làm mới mỗi 15 giây khi đang hiển thị. Thanh toán VNPAY thành công được
 cộng ví tự động qua IPN hợp lệ; admin chỉ đối soát chuyển khoản thủ công/rút tiền.
 Rút tiền chỉ dành cho ví commercial đang hoạt động, không có công nợ. Giao diện

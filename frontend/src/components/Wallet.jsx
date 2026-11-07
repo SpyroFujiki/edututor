@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { Action, Badge, Details, Form, Pager, Resource } from './Workspace.jsx'
-import { money, numberField, textField, useResource } from './workspace-utils.js'
+import { isAdmin, money, numberField, textField, useResource } from './workspace-utils.js'
 import PageHeading from './PageHeading.jsx'
 import Icon from './Icon.jsx'
-import WithdrawalForm from './WithdrawalForm.jsx'
+import { WithdrawalPanel } from './WithdrawalForm.jsx'
+import ContentDialog from './ContentDialog.jsx'
+import PaymentMethods from './PaymentMethods.jsx'
+import SiteLink from './SiteLink.jsx'
+import { createTopUp } from '../services/top-up.js'
 
 const bankFields = [
   textField('bank_name', 'Ngân hàng'),
@@ -14,14 +18,19 @@ const bankFields = [
 export default function Wallet({ api, user }) {
   const [version, setVersion] = useState(0)
   const wallets = useResource(api, '/me/wallets', version, 15000)
+  const hasCommercialWallet = wallets.data?.some((row) => row.type === 'commercial')
   const packages = useResource(api, '/credit-packages?limit=100')
-  const banks = useResource(api, '/me/payment-methods', version)
+  const banks = useResource(api, hasCommercialWallet ? '/me/payment-methods' : null, version)
   const [offset, setOffset] = useState(0)
   const orders = useResource(api, `/me/cash-orders?limit=20&offset=${offset}`, version, 15000)
   const [reviewPackage, setReviewPackage] = useState(null)
   const [paymentLink, setPaymentLink] = useState(null)
   const [verification, setVerification] = useState(null)
-  const vnpay = useResource(api, '/payments/vnpay/status')
+  const vnpay = useResource(api, '/payments/vnpay/status', 0, 15000)
+  const [provider, setProvider] = useState('vnpay')
+  const [topUpPending, setTopUpPending] = useState(false)
+  const vnpayEnabled = vnpay.data?.enabled === true && !vnpay.loading && !vnpay.error
+  const canTopUp = provider === 'manual' || vnpayEnabled
   const [historyType, setHistoryType] = useState('normal')
   const refresh = () => setVersion((value) => value + 1)
   return (
@@ -119,18 +128,26 @@ export default function Wallet({ api, user }) {
           />
         </div>
       )}
-      <div className="notice payment-policy">
-        <Icon name="shield" size={22} />
-        <div>
-          <strong>Nạp VNPAY, nhận credit tự động</strong>
-          <p>
-            Thanh toán VNPAY thành công sẽ tự cộng ví sau khi hệ thống nhận xác nhận. Bạn không cần
-            chờ admin duyệt. Chuyển khoản thủ công và rút tiền được quản trị đối soát.
-          </p>
-        </div>
-      </div>
       <h2>Nạp credit</h2>
-      <Resource resource={packages} empty="Chưa có gói nạp.">
+      <PaymentMethods
+        resource={vnpay}
+        value={provider}
+        onChange={setProvider}
+        disabled={topUpPending}
+      />
+      <Resource
+        resource={packages}
+        empty={
+          <>
+            <span>Hiện chưa có gói nạp khả dụng.</span>
+            {isAdmin(user) && (
+              <SiteLink className="button" href="/admin?section=credit-packages">
+                Quản lý gói nạp
+              </SiteLink>
+            )}
+          </>
+        }
+      >
         {(rows) => (
           <div className="card-grid">
             {rows.map((row) => (
@@ -139,148 +156,141 @@ export default function Wallet({ api, user }) {
                 <p>
                   <strong>{money(row.credits)} credit</strong> · {money(row.price)} đ
                 </p>
-                <button onClick={() => setReviewPackage(row)}>Chọn gói</button>
+                <button disabled={!canTopUp || topUpPending} onClick={() => setReviewPackage(row)}>
+                  Chọn gói
+                </button>
               </article>
             ))}
           </div>
         )}
       </Resource>
       {reviewPackage && (
-        <div className="card card-body">
-          <h3>Xác nhận yêu cầu nạp</h3>
+        <ContentDialog
+          title="Xác nhận nạp credit"
+          onClose={() => {
+            if (!topUpPending) setReviewPackage(null)
+          }}
+        >
+          <h2>{reviewPackage.name}</h2>
           <p>
             {money(reviewPackage.price)} đ → {money(reviewPackage.credits)} credit. VNPAY tự xác
             nhận thanh toán; chuyển khoản cần quản trị đối soát.
           </p>
-          {vnpay.data?.enabled && vnpay.data.sandbox && (
+          <PaymentMethods
+            resource={vnpay}
+            value={provider}
+            onChange={setProvider}
+            disabled={topUpPending}
+          />
+          {provider === 'vnpay' && vnpayEnabled && vnpay.data.sandbox && (
             <p className="notice">
               VNPAY đang ở môi trường thử nghiệm. Sử dụng thẻ test, không thanh toán bằng tiền thật.
             </p>
           )}
           <Form
-            fields={[
-              {
-                name: 'provider',
-                label: 'Cách thanh toán',
-                options: [
-                  ...(vnpay.data?.enabled
-                    ? [
-                        {
-                          value: 'vnpay',
-                          label: vnpay.data.sandbox ? 'VNPAY sandbox (thử nghiệm)' : 'VNPAY',
-                        },
-                      ]
-                    : []),
-                  { value: 'manual', label: 'Chuyển khoản, quản trị xác nhận' },
-                ],
-                default: vnpay.data?.enabled ? 'vnpay' : 'manual',
-              },
-            ]}
-            submit="Tạo đơn nạp"
-            onSubmit={async ({ provider }, requestId) => {
-              const body = { request_id: requestId, package_id: reviewPackage.id }
-              if (provider === 'vnpay')
-                setPaymentLink(
-                  await api.request('/payments/vnpay/checkout', { method: 'POST', body }),
-                )
-              else await api.request('/me/deposits', { method: 'POST', body })
-              setReviewPackage(null)
-              refresh()
+            key={provider}
+            fields={[]}
+            disabled={!canTopUp || topUpPending}
+            submit={provider === 'vnpay' ? 'Tiếp tục với VNPAY' : 'Tạo yêu cầu chuyển khoản'}
+            onSubmit={async (_, requestId) => {
+              setTopUpPending(true)
+              try {
+                const result = await createTopUp(api, {
+                  provider,
+                  packageId: reviewPackage.id,
+                  requestId,
+                  vnpayEnabled,
+                })
+                if (provider === 'vnpay') setPaymentLink(result)
+                setReviewPackage(null)
+                refresh()
+              } finally {
+                setTopUpPending(false)
+              }
             }}
           />
-          <button onClick={() => setReviewPackage(null)}>Đóng</button>
-        </div>
+        </ContentDialog>
       )}
       {paymentLink && (
-        <div className="notice success">
+        <ContentDialog title="Thanh toán VNPAY" onClose={() => setPaymentLink(null)}>
           <p>Đơn nạp đã tạo. Tiếp tục đến VNPAY để thanh toán trước khi liên kết hết hạn.</p>
           <a className="button primary" href={paymentLink.payment_url}>
             Thanh toán qua VNPAY →
           </a>
-          <button onClick={() => setPaymentLink(null)}>Đóng</button>
-        </div>
+        </ContentDialog>
       )}
-      <div className="split">
-        <section className="card card-body">
-          <h2>Tài khoản nhận tiền</h2>
-          <Resource resource={banks} empty="Chưa thêm tài khoản ngân hàng.">
-            {(rows) => (
-              <ul className="plain-list">
-                {rows.map((bank) => (
-                  <li key={bank.id}>
-                    <strong>
-                      {bank.bank_name} · {bank.account_number_masked}
-                    </strong>
-                    <p>{bank.account_holder_name}</p>
-                    <Action
-                      onClick={async () => {
-                        await api.request(`/me/payment-methods/${bank.id}`, { method: 'DELETE' })
-                        refresh()
-                      }}
-                    >
-                      Xóa tài khoản
-                    </Action>
-                    <details>
-                      <summary>Sửa thông tin ngân hàng</summary>
-                      <Form
-                        fields={bankFields}
-                        initial={{
-                          bank_name: bank.bank_name,
-                          account_holder_name: bank.account_holder_name,
-                        }}
-                        onSubmit={async (values) => {
-                          await api.request(`/me/payment-methods/${bank.id}`, {
-                            method: 'PUT',
-                            body: values,
-                          })
+      {hasCommercialWallet && (
+        <div className="split">
+          <section className="card card-body">
+            <h2>Tài khoản nhận tiền</h2>
+            <Resource resource={banks} empty="Chưa thêm tài khoản ngân hàng.">
+              {(rows) => (
+                <ul className="plain-list">
+                  {rows.map((bank) => (
+                    <li key={bank.id}>
+                      <strong>
+                        {bank.bank_name} · {bank.account_number_masked}
+                      </strong>
+                      <p>{bank.account_holder_name}</p>
+                      <Action
+                        onClick={async () => {
+                          await api.request(`/me/payment-methods/${bank.id}`, { method: 'DELETE' })
                           refresh()
                         }}
-                      />
-                    </details>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Resource>
-          <details>
-            <summary>Thêm ngân hàng</summary>
-            <Form
-              fields={bankFields}
-              reset
-              onSubmit={async (values) => {
-                await api.request('/me/payment-methods', { method: 'POST', body: values })
-                refresh()
-              }}
-            />
-          </details>
-        </section>
-        <section className="card card-body">
-          <h2>Yêu cầu rút tiền</h2>
-          <p>Quy đổi rút: 1 credit = 1 VND.</p>
-          {wallets.loading || banks.loading ? (
-            <p role="status" className="muted">
-              Đang tải thông tin rút tiền…
-            </p>
-          ) : wallets.error || banks.error ? (
-            <p role="alert">
-              Chưa tải được thông tin rút tiền. <button onClick={refresh}>Thử lại</button>
-            </p>
-          ) : (
-            <WithdrawalForm
-              key={version}
-              wallets={wallets.data ?? []}
-              banks={banks.data ?? []}
-              onSubmit={async (values, requestId) => {
-                await api.request('/me/withdrawals', {
-                  method: 'POST',
-                  body: { ...values, request_id: requestId },
-                })
-                refresh()
-              }}
-            />
-          )}
-        </section>
-      </div>
+                      >
+                        Xóa tài khoản
+                      </Action>
+                      <details>
+                        <summary>Sửa thông tin ngân hàng</summary>
+                        <Form
+                          fields={bankFields}
+                          initial={{
+                            bank_name: bank.bank_name,
+                            account_holder_name: bank.account_holder_name,
+                          }}
+                          onSubmit={async (values) => {
+                            await api.request(`/me/payment-methods/${bank.id}`, {
+                              method: 'PUT',
+                              body: values,
+                            })
+                            refresh()
+                          }}
+                        />
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Resource>
+            <details>
+              <summary>Thêm ngân hàng</summary>
+              <Form
+                fields={bankFields}
+                reset
+                onSubmit={async (values) => {
+                  await api.request('/me/payment-methods', { method: 'POST', body: values })
+                  refresh()
+                }}
+              />
+            </details>
+          </section>
+          <WithdrawalPanel
+            key={version}
+            wallets={wallets.data ?? []}
+            banks={banks.data ?? []}
+            loading={wallets.loading || banks.loading}
+            error={wallets.error || banks.error}
+            onReload={refresh}
+            onSubmit={async (values, requestId) => {
+              await api.request('/me/withdrawals', {
+                method: 'POST',
+                body: { ...values, request_id: requestId },
+              })
+              refresh()
+            }}
+          />
+        </div>
+      )}
       <h2>Đơn nạp / rút</h2>
       <button onClick={refresh}>Cập nhật số dư & đơn</button>
       <Resource resource={orders} empty="Chưa có đơn thanh toán.">

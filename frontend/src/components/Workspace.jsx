@@ -75,7 +75,14 @@ export function Action({ children, onClick, className = '', disabled = false }) 
   )
 }
 
-export function Form({ fields, onSubmit, submit = 'Lưu', initial = {}, reset = false }) {
+export function Form({
+  fields,
+  onSubmit,
+  submit = 'Lưu',
+  initial = {},
+  reset = false,
+  disabled = false,
+}) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -83,7 +90,7 @@ export function Form({ fields, onSubmit, submit = 'Lưu', initial = {}, reset = 
   const requestId = useRef(null)
   async function handle(event) {
     event.preventDefault()
-    if (lock.current) return
+    if (lock.current || disabled) return
     const form = event.currentTarget
     const raw = new FormData(form)
     const values = Object.fromEntries(
@@ -122,7 +129,7 @@ export function Form({ fields, onSubmit, submit = 'Lưu', initial = {}, reset = 
   }
   return (
     <form onSubmit={handle} className="form">
-      <fieldset disabled={busy}>
+      <fieldset disabled={busy || disabled}>
         {fields.map((field) => (
           <label key={field.name} className={field.type === 'checkbox' ? 'checkbox' : ''}>
             <span>{field.label}</span>
