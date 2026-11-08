@@ -283,7 +283,11 @@ export function MyLearning({ api }) {
         title="Việc học của tôi"
         description="Tiếp tục từ nơi bạn dừng lại. Khóa học, bài giảng và kết quả học tập ở ngay đây."
         icon="book"
-      />
+      >
+        <SiteLink className="button" href="/purchases">
+          <Icon name="clock" size={17} /> Lịch sử mua dịch vụ
+        </SiteLink>
+      </PageHeading>
       <Resource resource={resource} empty="Bạn chưa đăng ký khóa học hoặc gói gia sư.">
         {(rows) => (
           <>
@@ -317,7 +321,7 @@ function CourseRoom({ api, subscription, onBack }) {
   const [latestProgress, setLatestProgress] = useState(null)
   const [selectedLesson, setSelectedLesson] = useState(null)
   const lessons = useResource(api, `/subscriptions/${subscription.id}/lessons`)
-  const progress = useResource(api, `/subscriptions/${subscription.id}/progress`, 0, 15000)
+  const progress = useResource(api, `/subscriptions/${subscription.id}/progress`, 0, 60000)
   const course = useResource(api, `/subscriptions/${subscription.id}/course`)
   const attendance = useResource(api, `/subscriptions/${subscription.id}/attendance`)
   const saved =

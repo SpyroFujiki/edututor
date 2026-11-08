@@ -1,7 +1,8 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { driveVideo, externalMediaUrl, youtubeVideo } from '../services/media.js'
 import YouTubeLessonMedia from './YouTubeLessonMedia.jsx'
-import { formatDuration, playbackDelta } from '../services/watch-time.js'
+import { formatDuration } from '../services/watch-time.js'
+import { createLessonWatch, LESSON_SAVE_INTERVAL_MS } from '../services/lesson-watch.js'
 
 export default function LessonMedia(props) {
   const youtube = youtubeVideo(props.url)
@@ -50,80 +51,57 @@ function NativeLessonMedia({
   useEffect(() => {
     const video = videoRef.current
     if (!video || !track || !api || fallback) return
-    let total = accumulated.current
-    let previous = video.currentTime
-    let stamp = performance.now()
     let playing = !video.paused && !video.seeking
-    let lastSent = -1
-    let lastDuration = null
-    let pending = Promise.resolve()
     let disposed = false
-    const sample = () => {
-      const now = performance.now()
-      if (playing && !video.seeking)
-        total += playbackDelta(
-          previous,
-          video.currentTime,
-          (now - stamp) / 1000,
-          video.playbackRate,
-        )
-      previous = video.currentTime
-      stamp = now
-      accumulated.current = total
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({ url, seconds: total }))
-      } catch {
-        /* Server autosave still works without browser storage. */
-      }
-      if (!disposed) {
-        setWatched(total)
-        const seconds =
-          Number.isFinite(video.duration) && video.duration > 0 ? Math.ceil(video.duration) : null
-        const count = Math.min(600000, video.ended ? Math.ceil(total) : Math.floor(total))
-        report(count, !!seconds && count >= seconds, seconds)
-      }
+    let storage
+    try {
+      storage = localStorage
+    } catch {
+      /* Server autosave works without browser storage. */
     }
+    const recorder = createLessonWatch({
+      api,
+      path: `/subscriptions/${subscriptionId}/lessons/${lessonId}/watch`,
+      enabled: true,
+      cacheKey,
+      url,
+      initialWatched: accumulated.current,
+      storage,
+      onChange: (value) => {
+        if (!disposed) {
+          accumulated.current = value.watched
+          setWatched(value.watched)
+          if (value.duration) setDuration(value.duration)
+        }
+      },
+      onWatch: (count, complete, seconds) => {
+        if (!disposed) report(count, complete, seconds)
+      },
+      onSaved: (progress) => {
+        if (!disposed) saved(progress)
+      },
+      onStatus: (value) => {
+        if (!disposed) setStatus(value)
+      },
+    })
+    const sample = () =>
+      recorder.observe({
+        currentTime: video.currentTime,
+        duration: video.duration,
+        playbackRate: video.playbackRate,
+        playing: playing && !video.seeking,
+        seeking: video.seeking,
+        ended: video.ended,
+      })
     const save = () => {
       sample()
-      const seconds =
-        Number.isFinite(video.duration) && video.duration > 0 ? Math.ceil(video.duration) : null
-      const count = Math.min(600000, video.ended ? Math.ceil(total) : Math.floor(total))
-      if (count === lastSent && seconds === lastDuration) return
-      lastSent = count
-      lastDuration = seconds
-      if (!disposed) report(count, !!seconds && count >= seconds, seconds)
-      const body = {
-        duration_watched: count,
-        completed: false,
-        ...(seconds && seconds <= 600000 ? { duration_seconds: seconds } : {}),
-      }
-      pending = pending
-        .catch(() => {})
-        .then(() =>
-          api.request(`/subscriptions/${subscriptionId}/lessons/${lessonId}/watch`, {
-            method: 'POST',
-            body,
-            keepalive: true,
-          }),
-        )
-        .then((progress) => {
-          if (!disposed) {
-            setStatus('Đã lưu tiến độ.')
-            saved(progress)
-          }
-        })
-        .catch(() => {
-          lastSent = -1
-          if (!disposed) setStatus('Chưa lưu được tiến độ. Đang thử lại…')
-        })
+      recorder.save()
     }
     const start = () => {
-      previous = video.currentTime
-      stamp = performance.now()
       playing = true
+      sample()
     }
     const stop = () => {
-      sample()
       playing = false
       save()
     }
@@ -132,9 +110,8 @@ function NativeLessonMedia({
       playing = false
     }
     const seeked = () => {
-      previous = video.currentTime
-      stamp = performance.now()
       playing = !video.paused
+      sample()
     }
     const metadata = () => {
       if (Number.isFinite(video.duration)) setDuration(video.duration)
@@ -151,16 +128,18 @@ function NativeLessonMedia({
       seeking: seek,
       seeked,
       timeupdate: sample,
+      ratechange: sample,
       loadedmetadata: metadata,
       durationchange: metadata,
     }
     Object.entries(events).forEach(([name, listener]) => video.addEventListener(name, listener))
     document.addEventListener('visibilitychange', hide)
     window.addEventListener('pagehide', save)
-    const interval = setInterval(save, 10000)
+    const interval = setInterval(save, LESSON_SAVE_INTERVAL_MS)
     return () => {
       disposed = true
       save()
+      accumulated.current = recorder.snapshot().watched
       clearInterval(interval)
       Object.entries(events).forEach(([name, listener]) =>
         video.removeEventListener(name, listener),

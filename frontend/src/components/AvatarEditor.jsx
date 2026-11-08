@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Avatar from './Avatar.jsx'
 import ContentDialog from './ContentDialog.jsx'
 import Icon from './Icon.jsx'
-import { avatarFile, AVATAR_TYPES, readAvatarFile } from '../services/avatar.js'
+import { avatarFile, AVATAR_TYPES, prepareAvatarFile } from '../services/avatar.js'
 
 export default function AvatarEditor({ api, user, onProfileChange }) {
   const [open, setOpen] = useState(false)
@@ -73,7 +73,7 @@ export function AvatarDialog({ api, user, onClose, onSaved }) {
     setReading(true)
     try {
       const file = avatarFile(Array.from(files))
-      const value = await readAvatarFile(file)
+      const value = await prepareAvatarFile(file)
       if (version === selection.current) setDraft(value)
     } catch (failure) {
       if (version === selection.current) setError(failure.message)
@@ -147,12 +147,16 @@ export function AvatarDialog({ api, user, onClose, onSaved }) {
           <Icon name="upload" size={25} />
         </span>
         <strong>
-          {reading ? 'Đang đọc ảnh…' : dragging ? 'Thả ảnh để xem trước' : 'Kéo và thả ảnh vào đây'}
+          {reading
+            ? 'Đang xử lý ảnh…'
+            : dragging
+              ? 'Thả ảnh để xem trước'
+              : 'Kéo và thả ảnh vào đây'}
         </strong>
         <span>
           hoặc <span className="avatar-file-link">chọn ảnh từ thiết bị</span>
         </span>
-        <small id={hintId}>PNG, JPEG hoặc WebP · Tối đa 2 MB</small>
+        <small id={hintId}>PNG, JPEG hoặc WebP · Tối đa 5 MB</small>
       </label>
       <div className="avatar-preview-row">
         <Avatar user={{ ...user, avatar_base64: draft }} className="avatar-preview" />

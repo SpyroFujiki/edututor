@@ -7,7 +7,7 @@ from PIL import Image
 from sqlalchemy import event
 from test_domain_api import DomainApiFixture
 
-from app.core.avatar import MAX_AVATAR_BYTES, normalize_avatar
+from app.core.avatar import MAX_AVATAR_BYTES, MAX_STORED_AVATAR_DATA_LENGTH, normalize_avatar
 
 
 def picture(format="PNG", size=(48, 32), *, exif=None):
@@ -18,7 +18,23 @@ def picture(format="PNG", size=(48, 32), *, exif=None):
     return f"data:image/{mime};base64," + base64.b64encode(output.getvalue()).decode("ascii")
 
 
+def large_picture():
+    output = BytesIO()
+    with Image.new("RGB", (1280, 1280), "#247447") as image:
+        image.save(output, "PNG", compress_level=0)
+    data = output.getvalue()
+    assert 2 * 1024 * 1024 < len(data) <= 5 * 1024 * 1024
+    return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+
+
 class AvatarImageTests(unittest.TestCase):
+    def test_images_above_two_mib_and_up_to_five_mib_fit_the_existing_storage_limit(self):
+        self.assertEqual(MAX_AVATAR_BYTES, 5 * 1024 * 1024)
+        saved = normalize_avatar(large_picture())
+        self.assertLess(len(saved), MAX_STORED_AVATAR_DATA_LENGTH)
+        with Image.open(BytesIO(base64.b64decode(saved.partition(",")[2]))) as image:
+            self.assertEqual(image.size, (512, 512))
+
     def test_supported_raster_formats_become_small_webp_data_urls(self):
         for format in ("PNG", "JPEG", "WEBP"):
             with self.subTest(format=format):
@@ -65,6 +81,17 @@ class AvatarImageTests(unittest.TestCase):
 
 
 class AvatarApiTests(DomainApiFixture):
+    def test_profile_accepts_an_image_above_the_previous_limit_and_rejects_over_five_mib(self):
+        profile = self.request("PATCH", "/auth/profile", {"avatar_base64": large_picture()})
+        saved = profile["avatar_base64"]
+        self.assertLess(len(saved), MAX_STORED_AVATAR_DATA_LENGTH)
+        self.assertEqual(self.request("GET", "/auth/me")["avatar_base64"], saved)
+        too_large = (
+            "data:image/png;base64," + base64.b64encode(b"x" * (5 * 1024 * 1024 + 1)).decode()
+        )
+        self.request("PATCH", "/auth/profile", {"avatar_base64": too_large}, expected=422)
+        self.assertEqual(self.request("GET", "/auth/me")["avatar_base64"], saved)
+
     def test_upload_persists_and_name_only_updates_do_not_erase_avatar(self):
         profile = self.request(
             "PATCH", "/auth/profile", {"full_name": "Nguyễn An", "avatar_base64": picture()}

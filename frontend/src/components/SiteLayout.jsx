@@ -17,6 +17,7 @@ const workspaceLinks = [
   ['/learning', 'book', 'Việc học'],
   ['/tutoring', 'calendar', 'Gia sư & lịch học'],
   ['/wallet', 'wallet', 'Ví & thanh toán'],
+  ['/purchases', 'clock', 'Lịch sử mua dịch vụ'],
   ['/disputes', 'shield', 'Tranh chấp'],
   ['/account', 'settings', 'Tài khoản'],
 ]

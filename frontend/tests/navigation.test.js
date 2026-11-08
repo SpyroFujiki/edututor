@@ -8,6 +8,15 @@ import {
 } from '../src/admin-navigation.js'
 import { resolveRoute, returnDestination } from '../src/navigation.js'
 
+test('purchase history is an authenticated destination and survives the login redirect', () => {
+  assert.deepEqual(resolveRoute('/purchases'), {
+    page: 'purchases',
+    title: 'Lịch sử mua dịch vụ',
+    protected: true,
+  })
+  assert.equal(returnDestination('?next=%2Fpurchases'), '/purchases')
+})
+
 test('all fourteen admin destinations remain reachable through grouped menus', () => {
   assert.equal(adminGroups.length, 5)
   assert.equal(new Set(adminSections.map((section) => section.id)).size, 14)

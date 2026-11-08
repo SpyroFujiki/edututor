@@ -18,6 +18,7 @@ import SiteLink from './components/SiteLink.jsx'
 import { Catalog, MyLearning } from './components/Learning.jsx'
 import { Disputes, Tutoring } from './components/Tutoring.jsx'
 import Wallet from './components/Wallet.jsx'
+import PurchaseHistory from './components/PurchaseHistory.jsx'
 import Community from './components/Community.jsx'
 import Account from './components/Account.jsx'
 import Admin from './components/Admin.jsx'
@@ -261,6 +262,7 @@ function App() {
                   {route.page === 'learning' && <MyLearning api={api} />}
                   {route.page === 'community' && <Community api={api} user={user} />}
                   {route.page === 'wallet' && <Wallet api={api} user={user} />}
+                  {route.page === 'purchases' && <PurchaseHistory api={api} />}
                   {route.page === 'disputes' && <Disputes api={api} user={user} />}
                   {route.page === 'account' && (
                     <Account

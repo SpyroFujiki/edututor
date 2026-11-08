@@ -19,7 +19,8 @@ nút thử lại và không xóa phiên. Hạn phiên vẫn do backend quyết �
 7 ngày. Xem [cơ chế xác thực](../docs/security.md).
 
 Trong Tài khoản, cửa sổ đổi ảnh đại diện hỗ trợ kéo-thả hoặc chọn một ảnh
-PNG/JPEG/WebP tối đa 2 MB, xem trước, lưu và xóa ảnh. Backend xác minh nội dung,
+PNG/JPEG/WebP tối đa 5 MB, xem trước, lưu và xóa ảnh. Trình duyệt thu nhỏ ảnh
+tối đa 512×512 trước khi gửi để giữ request nhỏ trên Vercel. Backend vẫn xác minh nội dung,
 xoay theo EXIF, thu nhỏ tối đa 512×512 rồi lưu WebP dạng data URL base64 trong
 `users.avatar_base64`. Ảnh hiển thị ở hồ sơ và menu tài khoản; chưa có ảnh thì
 dùng chữ cái đầu. Danh sách người dùng/nhật ký dùng response danh tính gọn,
@@ -46,8 +47,12 @@ Trình nhúng gửi đúng origin và Referer, không dùng thẻ HTML video cho
 Các URL tệp video trực tiếp dùng HTML video; Drive preview dự phòng không cung cấp
 sự kiện theo dõi. Xem [giới hạn video](../docs/vnpay-drive.md).
 
-Tiến độ bài VOD không có bài tập = thời lượng đã xem / tổng thời lượng,
-cập nhật trên giao diện khi đang xem và lưu vào backend theo chu kỳ trên.
+Tiến độ bài VOD không có bài tập = thời lượng đã xem / tổng thời lượng.
+Thanh tiến độ và thời gian hiển thị cập nhật theo nhịp 10 giây thay vì từng
+sự kiện video; dừng/kết thúc cập nhật ngay. Thời gian phát vẫn được tích lũy
+đầy đủ, và các lần lưu không thay đổi dữ liệu được bỏ qua. Cả video trực tiếp
+và YouTube dùng chung bộ ghi nhận. Tiến độ từ server được đọc lại mỗi phút,
+ngoài các phản hồi lưu tự động theo chu kỳ trên.
 Tiến độ khóa là trung bình tiến độ các bài. Bài có `assignment_url` chỉ hoàn
 thành sau khi quản trị xác nhận bài tập; xem hết video không thay thế xác nhận.
 Lớp trực tiếp không có bài tập dùng điểm danh. Hoàn thành học tập có thể đạt
@@ -96,6 +101,13 @@ cộng ví tự động qua IPN hợp lệ; admin chỉ đối soát chuyển kh
 Rút tiền chỉ dành cho ví commercial đang hoạt động, không có công nợ. Giao diện
 không cho chọn ví normal và chỉ gửi `wallet_type=commercial`; backend chặn
 cả tạo yêu cầu normal và xác nhận đơn normal cũ còn chờ.
+
+Mục **Lịch sử mua dịch vụ** tại `/purchases` có trong sidebar/menu tài khoản,
+Ví và Việc học. Bảng hiển thị khóa học, gói gia sư đã mua, giữ tên/giá tại thời
+điểm mua cùng thời gian và trạng thái đăng ký, gồm cả hết hạn/đã hủy. Tìm kiếm
+không phân biệt dấu, lọc theo loại, trạng thái, thời gian và sắp xếp áp dụng ngay
+trước phân trang; chi tiết mở trong pop-up. Dữ liệu lấy từ API riêng của người
+đăng nhập `/me/subscriptions`; gói gia sư xuất hiện sau bước thanh toán.
 
 Triển khai frontend cùng backend bằng một project Vercel:
 [Vercel Services](../docs/vercel.md). Giữ `VITE_API_BASE_URL` trống để trình

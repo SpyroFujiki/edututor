@@ -281,10 +281,16 @@ trường đó; gửi `avatar_base64: null` để xóa ảnh. Không cho ghi `id
 các thuộc tính quản trị qua endpoint này.
 
 Ảnh phải là data URL `data:image/png;base64,...`, `data:image/jpeg;base64,...`
-hoặc `data:image/webp;base64,...`, tối đa 2 MiB sau giải mã. Backend kiểm base64,
+hoặc `data:image/webp;base64,...`, tối đa 5 MiB sau giải mã. Backend kiểm base64,
 định dạng thực và nội dung ảnh, giới hạn 16.777.216 pixel, chỉ nhận ảnh tĩnh.
 Ảnh được xoay đúng EXIF, thu nhỏ tối đa 512×512, bỏ metadata và mã hóa lại
 thành WebP trước khi lưu. Không lưu file ảnh trên ổ đĩa của server.
+
+Frontend nhận tệp tối đa 5 MiB rồi thu nhỏ/mã hóa ngay trên trình duyệt trước
+khi gửi API, tránh payload base64 vượt giới hạn request của Vercel. Backend
+vẫn kiểm tra và chuẩn hóa lại, không tin dữ liệu đã xử lý phía client. Giới hạn
+chiều dài trong database áp dụng cho ảnh đã chuẩn hóa 512×512, độc lập với giới
+hạn tệp gốc; không cần thay migration khi tăng giới hạn ảnh đầu vào.
 
 `/auth/me` và response cập nhật hồ sơ trả ảnh của chính người dùng. Trường
 ảnh được deferred trong ORM; danh sách quản trị và danh tính trong audit dùng

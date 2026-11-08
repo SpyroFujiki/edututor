@@ -40,7 +40,11 @@ export default function Wallet({ api, user }) {
         title="Ví & thanh toán"
         description="Quản lý credit, nạp học phí và theo dõi mọi giao dịch của bạn."
         icon="wallet"
-      />
+      >
+        <SiteLink className="button" href="/purchases">
+          <Icon name="clock" size={17} /> Lịch sử mua dịch vụ
+        </SiteLink>
+      </PageHeading>
       <Resource resource={wallets}>
         {(rows) => (
           <div className="card-grid">
@@ -377,7 +381,7 @@ function WalletHistory({ api, type }) {
       <h2>Lịch sử {type === 'normal' ? 'ví cá nhân' : 'ví gia sư'}</h2>
       <div className="tabs">
         {[
-          ['history', 'Thanh toán dịch vụ'],
+          ['history', 'Giao dịch credit'],
           ['external-history', 'Nạp / rút'],
           ['snapshots', 'Số dư theo ngày'],
         ].map(([value, label]) => (

@@ -9,6 +9,7 @@ export const routes = {
   '/tutoring': { page: 'tutoring', title: 'Gia sư & lịch học' },
   '/community': { page: 'community', title: 'Cộng đồng', protected: true },
   '/wallet': { page: 'wallet', title: 'Ví & thanh toán', protected: true },
+  '/purchases': { page: 'purchases', title: 'Lịch sử mua dịch vụ', protected: true },
   '/disputes': { page: 'disputes', title: 'Tranh chấp', protected: true },
   '/account': { page: 'account', title: 'Tài khoản', protected: true },
   '/admin': { page: 'admin', title: 'Quản trị', protected: true },

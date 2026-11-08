@@ -164,7 +164,7 @@ class PostgreSQLMigrationTests(unittest.TestCase):
         self.migrate("head")
         from test_avatars import picture
 
-        from app.core.avatar import MAX_AVATAR_DATA_LENGTH, normalize_avatar
+        from app.core.avatar import MAX_STORED_AVATAR_DATA_LENGTH, normalize_avatar
 
         avatar = normalize_avatar(picture())
         with self.factory.begin() as session:
@@ -178,7 +178,7 @@ class PostgreSQLMigrationTests(unittest.TestCase):
             with self.engine.begin() as connection:
                 connection.execute(
                     text("UPDATE users SET avatar_base64 = :value WHERE id = :id"),
-                    {"value": "x" * (MAX_AVATAR_DATA_LENGTH + 1), "id": identity},
+                    {"value": "x" * (MAX_STORED_AVATAR_DATA_LENGTH + 1), "id": identity},
                 )
         self.migrate("0007_learning_progress", downgrade=True)
         with self.engine.connect() as connection:

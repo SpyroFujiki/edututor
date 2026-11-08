@@ -140,6 +140,11 @@ The endpoint must be reachable by VNPAY without an interactive Vercel login.
 Preview Deployment Protection may prevent external IPN delivery; verify the
 chosen deployment's access policy before testing sandbox payments.
 
+The profile editor accepts source images up to 5 MiB and resizes them to a
+512×512 avatar in the browser before sending base64 to the API. This keeps
+the profile request within the [Vercel payload limit](https://vercel.com/docs/functions/limitations#request-body-size).
+The backend validates and re-encodes the image again before database storage.
+
 **Attachments still require an external storage implementation before use on
 Vercel.** The existing tutor chat upload/download code writes private files
 to `uploads/tutoring` on the local filesystem. A Vercel function's local

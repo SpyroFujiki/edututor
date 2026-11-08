@@ -22,6 +22,54 @@ const { Form } = await server.ssrLoadModule('/src/components/Workspace.jsx')
 const { default: LessonMedia } = await server.ssrLoadModule('/src/components/LessonMedia.jsx')
 const { default: Avatar } = await server.ssrLoadModule('/src/components/Avatar.jsx')
 const { AvatarDialog } = await server.ssrLoadModule('/src/components/AvatarEditor.jsx')
+const { PurchaseHistoryTable, PurchaseDetails } = await server.ssrLoadModule(
+  '/src/components/PurchaseHistory.jsx',
+)
+const { WorkspaceNav } = await server.ssrLoadModule('/src/components/SiteLayout.jsx')
+
+test('purchase history renders snapshot prices and expired/cancelled services in a safe semantic table', () => {
+  const rows = [
+    {
+      id: 'purchase-1',
+      type: 'booking',
+      title_at_purchase: 'Gia sư <script>unsafe</script>',
+      price_at_purchase: 250000,
+      status: 'cancelled',
+      activated_at: '2026-11-01T00:00:00',
+      password_hash: 'must-not-render',
+    },
+    {
+      id: 'free',
+      type: 'course',
+      title_at_purchase: 'Khóa miễn phí',
+      price_at_purchase: 0,
+      status: 'expired',
+      activated_at: '2026-10-01T00:00:00',
+    },
+  ]
+  const html = renderToStaticMarkup(createElement(PurchaseHistoryTable, { rows, onSelect() {} }))
+  assert.match(html, /<table/)
+  assert.match(html, /Giá tại thời điểm mua/)
+  assert.match(html, /250\.000 credit/)
+  assert.match(html, /Miễn phí/)
+  assert.match(html, /Đã hủy/)
+  assert.match(html, /Đã hết hạn/)
+  assert.match(html, /&lt;script&gt;/)
+  assert.doesNotMatch(html, /<script>|must-not-render/)
+  const details = renderToStaticMarkup(createElement(PurchaseDetails, { row: rows[0] }))
+  assert.match(details, /purchase-1/)
+  assert.match(details, /Không giới hạn/)
+  assert.match(details, /href="\/tutoring"/)
+  assert.match(details, /href="\/wallet"/)
+})
+
+test('purchase history remains reachable in the left workspace navigation', () => {
+  const html = renderToStaticMarkup(
+    createElement(WorkspaceNav, { user: { role: 'student' }, pathname: '/purchases' }),
+  )
+  assert.match(html, /href="\/purchases"[^>]*aria-current="page"/)
+  assert.match(html, /Lịch sử mua dịch vụ/)
+})
 
 test('profile pictures render as raster data URLs with a named fallback', () => {
   const user = { full_name: 'Nguyễn An', avatar_base64: 'data:image/webp;base64,YWJj' }
@@ -47,6 +95,7 @@ test('avatar dialog provides a keyboard-accessible file input, drop zone, previe
     }),
   )
   assert.match(html, /<dialog/)
+  assert.match(html, /Tối đa 5 MB/)
   assert.match(html, /avatar-dropzone/)
   assert.match(html, /Kéo và thả ảnh vào đây/)
   assert.match(html, /type="file"/)

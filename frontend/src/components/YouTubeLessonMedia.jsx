@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { youtubeEmbedUrl } from '../services/media.js'
 import { loadYouTubeApi, youtubeErrorMessage } from '../services/youtube-api.js'
-import { createLessonWatch } from '../services/lesson-watch.js'
+import { createLessonWatch, LESSON_SAVE_INTERVAL_MS } from '../services/lesson-watch.js'
 import { formatDuration } from '../services/watch-time.js'
 
 export default function YouTubeLessonMedia({
@@ -126,7 +126,7 @@ export default function YouTubeLessonMedia({
         if (!disposed) setError('Chưa kết nối được trình phát để lưu tiến độ. Vui lòng thử lại.')
       })
     const sampleTimer = setInterval(() => sample(), 500)
-    const saveTimer = setInterval(save, 10000)
+    const saveTimer = setInterval(save, LESSON_SAVE_INTERVAL_MS)
     const hide = () => {
       if (document.visibilityState === 'hidden') save()
     }

@@ -1,5 +1,8 @@
 import { playbackDelta } from './watch-time.js'
 
+export const LESSON_SAVE_INTERVAL_MS = 10_000
+export const LESSON_DISPLAY_INTERVAL_MS = 10_000
+
 export function createLessonWatch({
   api,
   path,
@@ -29,13 +32,48 @@ export function createLessonWatch({
   let duration = null
   let ended = false
   let lastSent = ''
+  let lastPublished = ''
+  let lastPublishedAt = -Infinity
+  let lastCached = null
   let pending = Promise.resolve()
   function snapshot() {
     return { watched, duration }
   }
+  function persist() {
+    if (!enabled || watched === lastCached) return
+    try {
+      storage?.setItem(cacheKey, JSON.stringify({ url, seconds: watched }))
+      lastCached = watched
+    } catch {
+      /* Autosave still works. */
+    }
+  }
+  function publish(force = false) {
+    const count = Math.min(600000, ended ? Math.ceil(watched) : Math.floor(watched))
+    const seconds = duration ? Math.ceil(duration) : null
+    const key = `${count}:${seconds}`
+    const now = clock()
+    if (key === lastPublished || (!force && now - lastPublishedAt < LESSON_DISPLAY_INTERVAL_MS))
+      return
+    lastPublished = key
+    lastPublishedAt = now
+    persist()
+    if (enabled) onWatch(count, !!seconds && count >= seconds, seconds)
+    onChange(snapshot())
+  }
   function observe(next) {
     const now = clock()
-    if (enabled && playing && previous !== null && Number.isFinite(next.currentTime))
+    const wasPlaying = playing
+    const previousDuration = duration ? Math.ceil(duration) : null
+    const wasComplete = !!duration && watched >= Math.ceil(duration)
+    const wasEnded = ended
+    if (
+      enabled &&
+      playing &&
+      !next.seeking &&
+      previous !== null &&
+      Number.isFinite(next.currentTime)
+    )
       watched += playbackDelta(previous, next.currentTime, (now - stamp) / 1000, rate)
     previous = Number.isFinite(next.currentTime) ? next.currentTime : null
     stamp = now
@@ -43,20 +81,18 @@ export function createLessonWatch({
     rate = next.playbackRate > 0 ? next.playbackRate : 1
     ended = !!next.ended
     if (Number.isFinite(next.duration) && next.duration > 0) duration = next.duration
-    if (enabled) {
-      try {
-        storage?.setItem(cacheKey, JSON.stringify({ url, seconds: watched }))
-      } catch {
-        /* Autosave still works. */
-      }
-      const count = Math.min(600000, ended ? Math.ceil(watched) : Math.floor(watched))
-      const seconds = duration ? Math.ceil(duration) : null
-      onWatch(count, !!seconds && count >= seconds, seconds)
-    }
-    onChange(snapshot())
+    const seconds = duration ? Math.ceil(duration) : null
+    publish(
+      previousDuration !== seconds ||
+        (wasPlaying && !playing) ||
+        (!wasEnded && ended) ||
+        (!wasComplete && !!seconds && watched >= seconds),
+    )
   }
   function save() {
     if (!enabled || !api) return Promise.resolve()
+    persist()
+    publish(true)
     const count = Math.min(600000, ended ? Math.ceil(watched) : Math.floor(watched))
     const seconds = duration ? Math.ceil(duration) : null
     const key = `${count}:${seconds}`
@@ -67,7 +103,6 @@ export function createLessonWatch({
       completed: false,
       ...(seconds && seconds <= 600000 ? { duration_seconds: seconds } : {}),
     }
-    onWatch(count, !!seconds && count >= seconds, seconds)
     pending = pending
       .then(() => api.request(path, { method: 'POST', body, keepalive: true }))
       .then((progress) => {
@@ -75,7 +110,7 @@ export function createLessonWatch({
         onSaved(progress)
       })
       .catch(() => {
-        lastSent = ''
+        if (lastSent === key) lastSent = ''
         onStatus('Chưa lưu được tiến độ. Đang thử lại…')
       })
     return pending

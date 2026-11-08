@@ -26,7 +26,8 @@ test('watch recorder follows playback and duration while excluding pauses and se
   play(0)
   time = 1000
   play(1)
-  assert.deepEqual(changes.at(-1), [21, false, 180])
+  assert.equal(recorder.snapshot().watched, 21)
+  assert.deepEqual(changes.at(-1), [20, false, 180])
   assert.equal(requests.length, 0)
   time = 2000
   play(120)
@@ -43,6 +44,91 @@ test('watch recorder follows playback and duration while excluding pauses and se
   assert.equal(requests[0].body.duration_seconds, 180)
   assert.equal(requests[0].body.completed, false)
   assert.equal(requests[0].keepalive, true)
+})
+
+test('frequent playback samples update the UI and cache only every ten seconds', () => {
+  let time = 0
+  const changes = []
+  const snapshots = []
+  const writes = []
+  const recorder = createLessonWatch({
+    enabled: true,
+    clock: () => time,
+    cacheKey: 'lesson',
+    url: 'video',
+    onWatch: (...values) => changes.push(values),
+    onChange: (value) => snapshots.push(value),
+    storage: { getItem: () => null, setItem: (...args) => writes.push(args) },
+  })
+  for (let step = 0; step <= 20; step++) {
+    time = step * 500
+    recorder.observe({ currentTime: step / 2, duration: 100, playing: true })
+  }
+  assert.equal(recorder.snapshot().watched, 10)
+  assert.deepEqual(changes, [
+    [0, false, 100],
+    [10, false, 100],
+  ])
+  assert.equal(snapshots.length, 2)
+  assert.equal(writes.length, 2)
+  time = 10500
+  recorder.observe({ currentTime: 10.5, duration: 100, playing: false })
+  assert.deepEqual(changes.at(-1), [10, false, 100])
+  // Fractions are retained for recovery without repeatedly redrawing the same count.
+  assert.equal(recorder.snapshot().watched, 10.5)
+})
+
+test('pause and completion flush immediately instead of waiting for the display interval', async () => {
+  let time = 0
+  const changes = []
+  const requests = []
+  const recorder = createLessonWatch({
+    enabled: true,
+    clock: () => time,
+    path: '/watch',
+    api: {
+      request: async (_, options) => {
+        requests.push(options.body)
+        return {}
+      },
+    },
+    onWatch: (...args) => changes.push(args),
+  })
+  recorder.observe({ currentTime: 0, duration: 3, playing: true })
+  time = 1000
+  recorder.observe({ currentTime: 1, duration: 3, playing: false })
+  assert.deepEqual(changes.at(-1), [1, false, 3])
+  await recorder.save()
+  assert.equal(requests.at(-1).duration_watched, 1)
+  time = 2000
+  recorder.observe({ currentTime: 1, duration: 3, playing: true })
+  time = 3000
+  recorder.observe({ currentTime: 2, duration: 3, playing: true })
+  time = 4000
+  recorder.observe({ currentTime: 3, duration: 3, playing: false, ended: true })
+  assert.deepEqual(changes.at(-1), [3, true, 3])
+  await recorder.save()
+  assert.equal(requests.at(-1).duration_watched, 3)
+})
+
+test('explicit saves flush the latest sample and small seek events do not count as viewing', async () => {
+  let time = 0
+  const changes = []
+  const recorder = createLessonWatch({
+    enabled: true,
+    clock: () => time,
+    api: { request: async () => ({}) },
+    onWatch: (...values) => changes.push(values),
+  })
+  recorder.observe({ currentTime: 0, duration: 60, playing: true })
+  time = 500
+  recorder.observe({ currentTime: 0.5, duration: 60, playing: false, seeking: true })
+  assert.equal(recorder.snapshot().watched, 0)
+  recorder.observe({ currentTime: 0.5, duration: 60, playing: true })
+  time = 1500
+  recorder.observe({ currentTime: 1.5, duration: 60, playing: true })
+  await recorder.save()
+  assert.deepEqual(changes.at(-1), [1, false, 60])
 })
 
 test('failed autosaves retry the same progress, preserve browser recovery and keep grading server-side', async () => {
@@ -89,4 +175,37 @@ test('live or inaccessible learning content does not submit watch records', asyn
   assert.equal(requests, 0)
   assert.equal(recorder.snapshot().duration, 180)
   assert.equal(recorder.snapshot().watched, 0)
+})
+
+test('a failed older save does not duplicate a newer queued progress update', async () => {
+  let time = 0
+  let rejectFirst
+  const counts = []
+  const recorder = createLessonWatch({
+    enabled: true,
+    clock: () => time,
+    path: '/watch',
+    api: {
+      request: (_, { body }) => {
+        counts.push(body.duration_watched)
+        if (counts.length === 1)
+          return new Promise((_, reject) => {
+            rejectFirst = reject
+          })
+        return Promise.resolve({})
+      },
+    },
+  })
+  recorder.observe({ currentTime: 0, duration: 60, playing: true })
+  time = 1000
+  recorder.observe({ currentTime: 1, duration: 60, playing: true })
+  const first = recorder.save()
+  await Promise.resolve()
+  time = 2000
+  recorder.observe({ currentTime: 2, duration: 60, playing: true })
+  const second = recorder.save()
+  rejectFirst(new Error('offline'))
+  await Promise.all([first, second])
+  await recorder.save()
+  assert.deepEqual(counts, [1, 2])
 })

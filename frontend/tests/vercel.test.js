@@ -31,6 +31,7 @@ test('SPA deep links fall back to HTML while browser asset requests retain their
     '/register',
     '/courses',
     '/tutoring',
+    '/purchases',
     '/payment/vnpay-return',
     '/unknown-page',
   ]) {
