@@ -100,7 +100,6 @@ def apply_payment_confirmation(session, params, settings, *, source):
         # Honor a verified payment for an existing order even if the wallet was
         # frozen during checkout. Crediting never unlocks spending or payouts.
         wallet = lock_wallets(session, order.wallet_id, require_active=False)[order.wallet_id]
-        require(wallet.user_id == order.user_id, "Wallet owner does not match order")
         before, credit = money(wallet.available_balance), money(order.credit_amount)
         after = money(before + credit)
         wallet.available_balance, wallet.updated_at = after, now()

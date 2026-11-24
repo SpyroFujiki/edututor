@@ -121,7 +121,7 @@ với Python 3.14/Node.js 24. CI không kết nối hoặc cập nhật DB produ
 [Vercel Services](docs/vercel.md) chạy frontend tại `/` và FastAPI tại `/api/*`.
 Push code lên GitHub không tự cập nhật Supabase: sau khi backup và kiểm tra
 cấu hình DB đích, chạy `python -m alembic upgrade head` trong môi trường deploy.
-Không xóa migration cũ khi chuyển repo. Head hiện tại là `0008_user_avatar`.
+Không xóa migration cũ khi chuyển repo. Head hiện tại là `0011_booking_integrity`.
 
 Tệp chat đang lưu trên ổ đĩa local; cần kho lưu trữ bền vững trước khi dùng
 upload trên serverless. Video nhúng phụ thuộc quyền và chính sách nhà cung cấp;

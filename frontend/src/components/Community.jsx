@@ -6,6 +6,7 @@ import { filterCollection } from './collection-utils.js'
 import CollectionToolbar from './CollectionToolbar.jsx'
 import ContentDialog from './ContentDialog.jsx'
 import Icon from './Icon.jsx'
+import Avatar from './Avatar.jsx'
 
 const postFields = [
   textField('title', 'Tiêu đề', {
@@ -110,9 +111,13 @@ export default function Community({ api, user }) {
                 {rows.slice(offset, offset + 9).map((row) => (
                   <article key={row.id} className="card card-body post-card selectable-card">
                     <div className="post-byline">
-                      <span className="avatar">
-                        {(row.author_nickname ?? 'T').charAt(0).toUpperCase()}
-                      </span>
+                      <Avatar
+                        user={{
+                          full_name: row.author_nickname ?? 'Thành viên EduTutor',
+                          avatar_base64: row.author_avatar_base64,
+                        }}
+                        decorative
+                      />
                       <div>
                         <strong>{row.author_nickname || 'Thành viên EduTutor'}</strong>
                         <small>{date(row.created_at)}</small>

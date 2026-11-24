@@ -12,10 +12,17 @@ from app.models import (
     CashOrder,
     ExternalTransaction,
     InternalTransaction,
+    UserSubscription,
     Wallet,
     WalletSnapshot,
 )
-from app.models.enums import CashOrderStatus, CashOrderType, TransactionType, WalletType
+from app.models.enums import (
+    CashOrderStatus,
+    CashOrderType,
+    ServiceType,
+    TransactionType,
+    WalletType,
+)
 from app.modules.common import MAX_CREDITS, now
 from app.modules.finance.cash_order import create_withdrawal
 from app.modules.finance.internal_transaction import transfer
@@ -167,7 +174,6 @@ class FinanceTests(DomainApiFixture):
             session.add(
                 CashOrder(
                     id=identity,
-                    user_id=self.ids["customer"],
                     wallet_id=UUID(wallet["id"]),
                     order_type=CashOrderType.OUT,
                     amount_vnd=100,
@@ -239,6 +245,13 @@ class FinanceTests(DomainApiFixture):
 
     def test_cancel_pending_withdrawal_releases_reservation_once_and_checks_owner(self):
         order, _ = self.withdraw(950)
+        order_path = f"/me/cash-orders/{order['id']}"
+        owner_id = str(self.ids["tutor"])
+        self.assertEqual(order["user_id"], owner_id)
+        self.assertEqual(self.request("GET", order_path, who="tutor")["user_id"], owner_id)
+        self.assertEqual(self.request("GET", "/me/cash-orders", who="tutor")[0]["id"], order["id"])
+        self.assertEqual(self.request("GET", "/me/cash-orders", who="other"), [])
+        self.request("GET", order_path, who="other", expected=404)
         wallet = self.wallet("tutor", "commercial")
         self.assertEqual(wallet["available_balance"], 1000)
         self.assertEqual(wallet["reserved_withdrawals"], 950)
@@ -446,6 +459,19 @@ class FinanceTests(DomainApiFixture):
         self.assertEqual(settlement["commission_rate"], 10)
         self.assertEqual(settlement["tutor_income"], 90)
         self.assertEqual(settlement["booking_id"], booking["id"])
+        self.assertEqual(
+            (settlement["platform_fee"], settlement["available_amount"], settlement["hold_amount"]),
+            (10, 0, 90),
+        )
+        with self.factory.begin() as session:
+            session.get(UserSubscription, UUID(booking["subscription_id"])).price_at_purchase = 80
+            session.get(BookingSettlement, UUID(settlement["id"])).release_date = now()
+        self.request("POST", f"/admin/settlements/{settlement['id']}/release", who="admin")
+        self.assertEqual(self.balance("tutor", WalletType.COMMERCIAL), 90)
+        refunded = self.late_refund(booking)
+        self.assertEqual(refunded["total_amount"], 100)
+        self.assertEqual(self.balance(), 1000)
+        self.assertEqual(self.balance("tutor", WalletType.COMMERCIAL), 0)
         normal = self.wallet("tutor")
         self.request(
             "POST",
@@ -626,8 +652,48 @@ class FinanceTests(DomainApiFixture):
             with self.factory.begin() as session:
                 session.get(InternalTransaction, identity).checksum = "0" * 64
 
+    def test_cancel_rejects_a_mismatched_purchase_without_refunding(self):
+        booking = self.paid_booking()
+        subscription_id = UUID(booking["subscription_id"])
+        with self.factory.begin() as session:
+            session.get(UserSubscription, subscription_id).type = ServiceType.COURSE
+        self.request("POST", f"/bookings/{booking['id']}/cancel", expected=400)
+        self.assertEqual(self.balance(), 900)
+        self.assertEqual(self.request("GET", f"/bookings/{booking['id']}")["status"], "confirmed")
+        with self.factory() as session:
+            self.assertEqual(session.get(UserSubscription, subscription_id).status, "active")
+
+    def test_full_dispute_refund_uses_held_settlement_total(self):
+        booking = self.completed_booking()
+        with self.factory.begin() as session:
+            session.get(UserSubscription, UUID(booking["subscription_id"])).price_at_purchase = 0
+        dispute = self.request(
+            "POST", f"/bookings/{booking['id']}/dispute", {"reason_category": "Full refund"}
+        )
+        self.request("POST", f"/admin/disputes/{dispute['id']}/claim", who="admin")
+        self.request(
+            "POST",
+            f"/admin/disputes/{dispute['id']}/decision",
+            {"verdict": "refund_full", "reason": "Agreed full refund"},
+            who="admin",
+        )
+        self.assertEqual(self.balance(), 1000)
+        wallet = self.wallet("tutor", "commercial")
+        self.assertEqual((wallet["available_balance"], wallet["holding_balance"]), (0, 0))
+        self.assertEqual(
+            self.request("GET", "/me/settlements", who="tutor")[0]["status"], "refunded"
+        )
+
     def test_late_full_refund_does_not_claim_an_earlier_partial_refund_as_its_own(self):
         booking = self.completed_booking()
+        with self.factory.begin() as session:
+            session.get(UserSubscription, UUID(booking["subscription_id"])).price_at_purchase = 80
+            wallet = session.scalar(
+                select(Wallet).where(
+                    Wallet.user_id == self.ids["tutor"], Wallet.type == WalletType.COMMERCIAL
+                )
+            )
+            wallet.commission_rate = 25
         dispute = self.request(
             "POST", f"/bookings/{booking['id']}/dispute", {"reason_category": "Partial adjustment"}
         )
@@ -640,6 +706,8 @@ class FinanceTests(DomainApiFixture):
         )
         self.late_refund(booking, expected=400)
         self.assertEqual(self.balance(), 940)
+        self.assertEqual(self.balance("tutor", WalletType.COMMERCIAL), 54)
+        self.assertEqual(self.wallet("tutor", "commercial")["holding_balance"], 0)
 
     def test_snapshot_batch_is_bounded_and_same_day_history_is_not_overwritten(self):
         first = self.request("POST", "/admin/jobs/snapshots?limit=2&offset=0", who="admin")

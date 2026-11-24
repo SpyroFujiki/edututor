@@ -81,6 +81,22 @@ class AvatarImageTests(unittest.TestCase):
 
 
 class AvatarApiTests(DomainApiFixture):
+    def test_post_exposes_the_avatar_snapshot_as_base64(self):
+        profile = self.request("PATCH", "/auth/profile", {"avatar_base64": picture()})
+        post = self.request(
+            "POST",
+            "/posts",
+            {"title": "Avatar snapshot", "content": "Post body", "min_role_level": 0},
+            expected=201,
+        )
+        self.assertEqual(post["author_avatar_base64"], profile["avatar_base64"])
+        self.assertNotIn("author_avatar_url", post)
+        self.request("PATCH", "/auth/profile", {"avatar_base64": None})
+        self.assertEqual(
+            self.request("GET", f"/posts/{post['id']}")["author_avatar_base64"],
+            profile["avatar_base64"],
+        )
+
     def test_profile_accepts_an_image_above_the_previous_limit_and_rejects_over_five_mib(self):
         profile = self.request("PATCH", "/auth/profile", {"avatar_base64": large_picture()})
         saved = profile["avatar_base64"]

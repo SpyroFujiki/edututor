@@ -518,12 +518,18 @@ class DomainApiTests(DomainApiFixture):
     def test_vod_attendance_never_accepts_client_grades_and_completion_is_atomic(self):
         course, lesson = self.create_course()
         sub = self.purchase(course)
+        with self.factory.begin() as session:
+            row = session.get(CourseProgress, UUID(sub["id"]))
+            row.midterm_score = 84
+            row.endterm_score = 85
         path = f"/subscriptions/{sub['id']}/lessons/{lesson['id']}/watch"
         self.request("POST", path, {"duration_watched": 600, "final_score": 100}, expected=422)
         progress = self.request("POST", path, {"duration_watched": 600})
         self.assertEqual(progress["progress_percent"], "100.00")
         self.assertIsNone(progress["result"])
         self.assertIsNone(progress["final_score"])
+        self.assertEqual((progress["midterm_score"], progress["endterm_score"]), (84, 85))
+        self.assertIsNone(progress["practice_score"])
         self.assertIsNotNone(progress["completed_at"])
         self.request(
             "POST",
@@ -534,10 +540,11 @@ class DomainApiTests(DomainApiFixture):
         progress = self.request(
             "POST",
             f"/admin/subscriptions/{sub['id']}/grade",
-            {"midterm_score": 90, "endterm_score": 90, "practice_score": 90},
+            {"midterm_score": 84, "endterm_score": 85, "practice_score": 85},
             who="admin",
         )
         self.assertEqual(progress["progress_percent"], "100.00")
+        self.assertEqual(progress["final_score"], 85)
         self.assertEqual(progress["result"], "excellent")
         self.assertIsNotNone(progress["completed_at"])
         self.request("POST", path, {"duration_watched": 1})
@@ -558,6 +565,7 @@ class DomainApiTests(DomainApiFixture):
         self.assertEqual(rows[0]["duration_seconds"], 125)
         attendance = self.request("GET", f"/subscriptions/{sub['id']}/attendance")[0]
         self.assertEqual(attendance["duration_watched"], 30)
+        self.assertEqual(attendance["course_id"], course["id"])
         self.assertTrue(attendance["is_absent"])
         self.request("POST", path, {"duration_watched": 5, "duration_seconds": 10})
         self.assertEqual(
@@ -1326,6 +1334,8 @@ class DomainApiTests(DomainApiFixture):
             "POST", path, {"approve": False, "reason": "Role changed; please reapply"}, who="head"
         )
         self.assertEqual(result["status"], "rejected")
+        self.assertEqual(result["question_set"], request["question_set"])
+        self.assertEqual(result["current_role_at_request"], request["current_role_at_request"])
         self.assertEqual(self.request("GET", "/auth/me", who="other")["role"], "student")
 
     def test_message_cursor_is_scoped_to_booking_and_channel(self):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, text
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -17,7 +17,6 @@ class Dispute(Base):
     raised_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     admin_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     reason_category: Mapped[str | None] = mapped_column(String)
-    is_completed: Mapped[bool | None] = mapped_column(Boolean, server_default=text("false"))
     verdict: Mapped[DisputeVerdict | None] = mapped_column(dispute_verdict_enum)
     created_at: Mapped[datetime | None] = mapped_column(DateTime)
     resolve_at: Mapped[datetime | None] = mapped_column(DateTime)

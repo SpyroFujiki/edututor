@@ -75,7 +75,7 @@ def check_message_permission(
         get(session, Booking, booking_id, lock=lock)
         dispute = dispute_access(session, user_id, dispute_id)
         require(
-            dispute.booking_id == booking_id and not dispute.is_completed,
+            dispute.booking_id == booking_id and dispute.resolve_at is None,
             "Tranh chấp không hoạt động",
         )
     else:

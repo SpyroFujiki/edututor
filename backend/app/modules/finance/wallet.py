@@ -270,7 +270,7 @@ def reserved_withdrawals(session: Session, wallet: Wallet) -> int:
     )
     for order in pending:
         require(
-            order.user_id == wallet.user_id and money(order.credit_amount) > 0,
+            money(order.credit_amount) > 0,
             "Đơn rút có dữ liệu không hợp lệ, cần đối soát",
         )
     return sum(order.credit_amount for order in pending)

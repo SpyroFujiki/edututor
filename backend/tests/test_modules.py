@@ -163,8 +163,20 @@ class ModuleFeatureTests(unittest.TestCase):
                 )
             )
             self.session.flush()
+            self.booking_subscription = uuid4()
+            self.session.add(
+                UserSubscription(
+                    id=self.booking_subscription,
+                    user_id=self.customer,
+                    type=ServiceType.BOOKING,
+                    status=SubscriptionStatus.ACTIVE,
+                    activated_at=now,
+                )
+            )
+            self.session.flush()
             self.session.add(
                 Booking(
+                    subscription_id=self.booking_subscription,
                     id=self.booking,
                     package_id=self.package,
                     customer_id=self.customer,
@@ -203,7 +215,6 @@ class ModuleFeatureTests(unittest.TestCase):
             self.session.add(
                 CashOrder(
                     id=self.cash_order,
-                    user_id=self.customer,
                     wallet_id=self.wallet,
                     order_type=CashOrderType.IN,
                     status=CashOrderStatus.PENDING,
@@ -316,7 +327,8 @@ class ModuleFeatureTests(unittest.TestCase):
         with self.session.begin():
             subscriptions = list_my_active_subscriptions(self.session, self.customer)
             self.assertEqual(
-                {row.id for row in subscriptions}, {self.subscription, self.hidden_subscription}
+                {row.id for row in subscriptions},
+                {self.subscription, self.hidden_subscription, self.booking_subscription},
             )
 
     def test_post_permissions_also_apply_to_comments_and_reports(self):

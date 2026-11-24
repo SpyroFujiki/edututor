@@ -1,5 +1,5 @@
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from sqlalchemy import (
@@ -9,30 +9,26 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
-from app.models.enums import CourseResult, course_result_enum
+from app.models.enums import CourseResult
 
 
 class CourseProgress(Base):
     __tablename__ = "course_progress"
     __table_args__ = (
         Index(None, "course_id"),
-        UniqueConstraint("subscription_id", "course_id"),
         CheckConstraint("progress_percent >= 0 AND progress_percent <= 100", name="progress_range"),
         CheckConstraint(
             "attendance_ratio IS NULL OR (attendance_ratio >= 0 AND attendance_ratio <= 1)",
             name="attendance_ratio_range",
         ),
         CheckConstraint(
-            "(progress_percent < 100 AND result IS NULL AND completed_at IS NULL) OR "
-            "(progress_percent = 100 AND completed_at IS NOT NULL AND "
-            "((result IS NULL AND final_score IS NULL) OR (result IS NOT NULL AND final_score IS NOT NULL)))",
-            name="completion_requires_result",
+            "(progress_percent = 100) = (completed_at IS NOT NULL)",
+            name="completion_timestamp",
         ),
     )
 
@@ -45,7 +41,28 @@ class CourseProgress(Base):
     midterm_score: Mapped[int | None] = mapped_column(Integer)
     endterm_score: Mapped[int | None] = mapped_column(Integer)
     practice_score: Mapped[int | None] = mapped_column(Integer)
-    final_score: Mapped[int | None] = mapped_column(Integer)
-    result: Mapped[CourseResult | None] = mapped_column(course_result_enum)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("now()"))
+
+    @property
+    def final_score(self) -> int | None:
+        if (
+            self.completed_at is None
+            or self.midterm_score is None
+            or self.endterm_score is None
+            or self.practice_score is None
+        ):
+            return None
+        total = self.midterm_score + self.endterm_score + self.practice_score
+        return int((Decimal(total) / 3).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+    @property
+    def result(self) -> CourseResult | None:
+        score = self.final_score
+        if score is None:
+            return None
+        if score >= 85:
+            return CourseResult.EXCELLENT
+        if score >= 50:
+            return CourseResult.GOOD
+        return CourseResult.FAILED

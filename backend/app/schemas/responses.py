@@ -9,16 +9,19 @@ from decimal import Decimal
 from typing import Literal, get_args, get_type_hints
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, model_validator
 
 from app import models
+from app.models.enums import CourseResult
 from app.schemas.auth import UserIdentityResponse
 
 
-def response(name, model, fields):
+def response(name, model, fields, **derived_fields):
     hints = get_type_hints(model)
     definitions = {field: (get_args(hints[field])[0], ...) for field in fields.split()}
-    return create_model(name, __config__=ConfigDict(from_attributes=True), **definitions)
+    return create_model(
+        name, __config__=ConfigDict(from_attributes=True), **definitions, **derived_fields
+    )
 
 
 CourseResponse = response(
@@ -43,7 +46,9 @@ SubscriptionResponse = response(
 _ProgressFields = response(
     "ProgressFields",
     models.CourseProgress,
-    "subscription_id course_id progress_percent attendance_ratio midterm_score endterm_score practice_score final_score result completed_at updated_at",
+    "subscription_id course_id progress_percent attendance_ratio midterm_score endterm_score practice_score completed_at updated_at",
+    final_score=(int | None, ...),
+    result=(CourseResult | None, ...),
 )
 
 
@@ -65,7 +70,8 @@ class ProgressResponse(_ProgressFields):
 AttendanceResponse = response(
     "AttendanceResponse",
     models.Attendance,
-    "subscription_id course_id lesson_id is_absent duration_watched assignment_completed",
+    "subscription_id lesson_id is_absent duration_watched assignment_completed",
+    course_id=(UUID, ...),
 )
 BookingResponse = response(
     "BookingResponse",
@@ -82,15 +88,24 @@ MessageResponse = response(
     models.Message,
     "id booking_id dispute_id sender_id content file_url created_at",
 )
-DisputeResponse = response(
-    "DisputeResponse",
+_DisputeFields = response(
+    "DisputeFields",
     models.Dispute,
-    "id booking_id raised_by_user_id admin_id reason_category is_completed verdict created_at resolve_at",
+    "id booking_id raised_by_user_id admin_id reason_category verdict created_at resolve_at",
 )
+
+
+class DisputeResponse(_DisputeFields):
+    @computed_field
+    @property
+    def is_completed(self) -> bool:
+        return self.resolve_at is not None
+
+
 PostResponse = response(
     "PostResponse",
     models.Post,
-    "id author_id author_nickname author_avatar_url title content min_role_level is_hidden created_at",
+    "id author_id author_nickname author_avatar_base64 title content min_role_level is_hidden created_at",
 )
 CommentResponse = response(
     "CommentResponse", models.Comment, "id post_id user_id parent_id content is_hidden created_at"
@@ -103,7 +118,8 @@ ReportResponse = response(
 RoleRequestResponse = response(
     "RoleRequestResponse",
     models.RoleRequest,
-    "id user_id current_role_at_request question_set answer_url request_note status priority admin_id admin_note created_at updated_at",
+    "id user_id current_role_at_request answer_url request_note status priority admin_id admin_note created_at updated_at",
+    question_set=(int | None, ...),
 )
 _WalletFields = response(
     "WalletFields",
@@ -117,8 +133,10 @@ class WalletResponse(_WalletFields):
     spendable_balance: int
 
 
-_cash_fields = "id user_id wallet_id order_type package_id amount_vnd credit_amount status created_at updated_at"
-_CashOrderFields = response("CashOrderFields", models.CashOrder, _cash_fields)
+_cash_fields = (
+    "id wallet_id order_type package_id amount_vnd credit_amount status created_at updated_at"
+)
+_CashOrderFields = response("CashOrderFields", models.CashOrder, _cash_fields, user_id=(UUID, ...))
 
 
 class CashOrderResponse(_CashOrderFields):
@@ -133,6 +151,7 @@ class CashOrderResponse(_CashOrderFields):
             metadata = value.bank_info if isinstance(value.bank_info, dict) else {}
             return {
                 **{name: getattr(value, name) for name in _cash_fields.split()},
+                "user_id": value.user_id,
                 "provider": "vnpay" if metadata.get("provider") == "vnpay" else "manual",
                 "cancelled_by_user": bool(metadata.get("cancelled_by_user")),
                 "payment_expires_at": metadata.get("expires_at")
@@ -145,7 +164,11 @@ class CashOrderResponse(_CashOrderFields):
 SettlementResponse = response(
     "SettlementResponse",
     models.BookingSettlement,
-    "id booking_id tutor_wallet_id total_amount commission_rate platform_fee tutor_income available_amount hold_amount status release_date actual_released_at created_at",
+    "id booking_id tutor_wallet_id total_amount commission_rate status release_date actual_released_at created_at",
+    platform_fee=(int, ...),
+    tutor_income=(int, ...),
+    available_amount=(int, ...),
+    hold_amount=(int, ...),
 )
 SnapshotResponse = response(
     "SnapshotResponse",

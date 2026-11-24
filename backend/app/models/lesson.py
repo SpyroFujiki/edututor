@@ -10,7 +10,6 @@ class Lesson(Base):
     __tablename__ = "lessons"
     __table_args__ = (
         UniqueConstraint("course_id", "order_idx"),
-        UniqueConstraint("id", "course_id"),
         CheckConstraint(
             "session_count IS NULL OR session_count > 0", name="positive_session_count"
         ),

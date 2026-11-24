@@ -14,7 +14,6 @@ from app.models import (
     CashOrder,
     Dispute,
     User,
-    UserSubscription,
     Wallet,
 )
 from app.models.enums import (
@@ -23,7 +22,6 @@ from app.models.enums import (
     CashOrderStatus,
     CashOrderType,
     EscrowStatus,
-    ServiceType,
     SubscriptionStatus,
     TransactionType,
     UserRole,
@@ -32,6 +30,7 @@ from app.models.enums import (
 from app.modules.common import ADMIN_ROLES, actor, add, audit, get, money, now, require
 from app.modules.finance.internal_transaction import transfer
 from app.modules.finance.wallet import lock_wallets, owned_wallet, platform_wallet, spendable
+from app.modules.tutoring.access import get_booking_subscription
 from app.modules.users.user import get_active_user
 
 
@@ -118,17 +117,13 @@ def settle_booking(session: Session, user_id: UUID, booking_id: UUID) -> Booking
     )
     require(
         not session.scalar(
-            select(Dispute.id).where(
-                Dispute.booking_id == booking.id, Dispute.is_completed.is_(False)
-            )
+            select(Dispute.id).where(Dispute.booking_id == booking.id, Dispute.resolve_at.is_(None))
         ),
         "Đơn đang có tranh chấp",
     )
-    subscription = get(session, UserSubscription, booking.subscription_id, lock=True)
+    subscription = get_booking_subscription(session, booking)
     require(
-        subscription.type == ServiceType.BOOKING
-        and subscription.user_id == booking.customer_id
-        and subscription.status == SubscriptionStatus.ACTIVE,
+        subscription.status == SubscriptionStatus.ACTIVE,
         "Quyền mua không khớp booking",
     )
     total = money(subscription.price_at_purchase)
@@ -137,8 +132,7 @@ def settle_booking(session: Session, user_id: UUID, booking_id: UUID) -> Booking
     wallets = lock_wallets(session, platform_id, wallet.id)
     wallet = wallets[wallet.id]
     require(wallet.commission_rate is not None, "Chưa cấu hình phí gia sư")
-    fee = total * wallet.commission_rate // 100
-    income = total - fee
+    income = total - BookingSettlement.fee_for(total, wallet.commission_rate)
     require(
         spendable(session, wallets[platform_id]) >= income,
         "Ví nền tảng thiếu tiền bảo đảm quyết toán",
@@ -150,10 +144,6 @@ def settle_booking(session: Session, user_id: UUID, booking_id: UUID) -> Booking
         tutor_wallet_id=wallet.id,
         total_amount=total,
         commission_rate=wallet.commission_rate,
-        platform_fee=fee,
-        tutor_income=income,
-        available_amount=0,
-        hold_amount=income,
         status=EscrowStatus.HELD,
         release_date=now() + timedelta(days=7),
         created_at=now(),
@@ -250,7 +240,7 @@ def refund_released_booking(
         settlement.status == EscrowStatus.RELEASED and booking.status == BookingStatus.COMPLETED,
         "Chỉ áp dụng cho booking đã hoàn tất và giải ngân",
     )
-    subscription = get(session, UserSubscription, booking.subscription_id, lock=True)
+    subscription = get_booking_subscription(session, booking)
     # Prevent new withdrawal reservations while locking/cancelling the pending ones.
     get(session, User, booking.tutor_id, lock=True)
     pending = list(

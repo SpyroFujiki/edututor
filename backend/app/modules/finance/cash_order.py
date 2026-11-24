@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from app.models import CashOrder, CreditPackage, PaymentMethod, Wallet
 from app.models.enums import CashOrderStatus, CashOrderType, UserRole, WalletType
@@ -14,10 +14,10 @@ from app.modules.finance.wallet import lock_wallets, owned_wallet, reserved_with
 def get_my_cash_order(session: Session, order_id: UUID, user_id: UUID) -> CashOrder:
     actor(session, user_id)
     order = session.scalar(
-        select(CashOrder).where(
-            CashOrder.id == order_id,
-            CashOrder.user_id == user_id,
-        )
+        select(CashOrder)
+        .join(CashOrder.wallet)
+        .options(contains_eager(CashOrder.wallet))
+        .where(CashOrder.id == order_id, Wallet.user_id == user_id)
     )
     if order is None:
         raise LookupError("Cash order not found or access denied")
@@ -53,8 +53,7 @@ def create_deposit(
         session,
         CashOrder,
         id=request_id,
-        user_id=user_id,
-        wallet_id=wallet.id,
+        wallet=wallet,
         order_type=CashOrderType.IN,
         package_id=package.id,
         amount_vnd=money(package.price),
@@ -82,7 +81,7 @@ def create_withdrawal(
             and existing.order_type == CashOrderType.OUT
             and existing.credit_amount == amount
             and cash_order_metadata(existing).get("payment_method_id") == str(method_id)
-            and get(session, Wallet, existing.wallet_id).type == wallet_type,
+            and existing.wallet.type == wallet_type,
             "Mã yêu cầu đã được dùng",
         )
         return existing
@@ -105,8 +104,7 @@ def create_withdrawal(
         session,
         CashOrder,
         id=request_id,
-        user_id=user_id,
-        wallet_id=wallet.id,
+        wallet=wallet,
         order_type=CashOrderType.OUT,
         amount_vnd=amount,
         credit_amount=amount,

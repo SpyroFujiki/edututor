@@ -6,7 +6,6 @@ from sqlalchemy import select
 
 from app.models import Attendance, Course, CourseProgress, Lesson, UserSubscription
 from app.models.enums import (
-    CourseResult,
     CourseStatus,
     ServiceType,
     SubscriptionStatus,
@@ -241,27 +240,10 @@ def recalculate(session, progress):
         {key: value for key, value in part.items() if key != "_fraction"} for part in parts
     ]
     progress.is_live = course.is_live
-    grades = [progress.midterm_score, progress.endterm_score, progress.practice_score]
     if parts and complete == len(parts):
         progress.completed_at = progress.completed_at or now()
-        if all(value is not None for value in grades):
-            score = int(
-                (sum(Decimal(value) for value in grades) / 3).quantize(
-                    Decimal(1), rounding=ROUND_HALF_UP
-                )
-            )
-            progress.final_score = score
-            progress.result = (
-                CourseResult.EXCELLENT
-                if score >= 85
-                else CourseResult.GOOD
-                if score >= 50
-                else CourseResult.FAILED
-            )
-        else:
-            progress.final_score = progress.result = None
     else:
-        progress.final_score = progress.result = progress.completed_at = None
+        progress.completed_at = None
     progress.updated_at = now()
     session.flush()
     return progress
@@ -312,7 +294,6 @@ def record_attendance(
             Attendance,
             subscription_id=subscription_id,
             lesson_id=lesson_id,
-            course_id=lesson.course_id,
             duration_watched=saved_duration,
             is_absent=not confirmed,
         )
@@ -357,7 +338,6 @@ def confirm_assignment(session, admin_id, subscription_id, lesson_id, completed,
             Attendance,
             subscription_id=subscription_id,
             lesson_id=lesson_id,
-            course_id=lesson.course_id,
             duration_watched=0,
             assignment_completed=completed,
         )
@@ -399,7 +379,6 @@ def live_attendance(session, admin_id, subscription_id, lesson_id, is_absent):
             Attendance,
             subscription_id=subscription_id,
             lesson_id=lesson_id,
-            course_id=lesson.course_id,
             is_absent=is_absent,
             duration_watched=0,
         )

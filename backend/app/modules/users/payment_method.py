@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CashOrder, PaymentMethod
+from app.models import CashOrder, PaymentMethod, Wallet
 from app.models.enums import CashOrderStatus, CashOrderType
 from app.modules.common import actor, add, get, require
 
@@ -82,8 +82,10 @@ def normalize_account_number(value: str) -> str:
 
 def used_by_pending_withdrawal(session: Session, user_id: UUID, method_id: UUID) -> bool:
     pending = session.scalars(
-        select(CashOrder).where(
-            CashOrder.user_id == user_id,
+        select(CashOrder)
+        .join(CashOrder.wallet)
+        .where(
+            Wallet.user_id == user_id,
             CashOrder.order_type == CashOrderType.OUT,
             CashOrder.status == CashOrderStatus.PENDING,
         )

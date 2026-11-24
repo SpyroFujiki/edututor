@@ -66,7 +66,7 @@ kiểm tra đủ 25 bảng/15 enum và Alembic check không phát hiện drift s
 
 Schema gốc giữ trong revision 0001; các revision tiếp theo thêm ràng buộc,
 chỉ mục và trường nghiệp vụ, bao gồm họ tên, thời lượng bài học, xác nhận bài
-tập, tiến độ độc lập điểm đánh giá và ảnh đại diện. Head là `0008_user_avatar`.
+tập, tiến độ độc lập điểm đánh giá và ảnh đại diện. Head là `0011_booking_integrity`.
 Các con số constraint phía trên mô tả đối chiếu schema gốc, không phải tổng
 sau mọi revision. Alembic check và test roundtrip PostgreSQL xác minh schema hiện tại.
 

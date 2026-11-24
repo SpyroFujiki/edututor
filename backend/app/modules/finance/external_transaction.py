@@ -63,7 +63,6 @@ def record_manual_movement(
     # An already-received deposit can settle into a frozen wallet; payouts
     # still require an active wallet and the freeze remains in effect.
     wallet = lock_wallets(session, order.wallet_id, require_active=not incoming)[order.wallet_id]
-    require(wallet.user_id == order.user_id, "Ví không thuộc chủ đơn")
     amount, before = money(order.credit_amount), money(wallet.available_balance)
     require(amount > 0 and money(order.amount_vnd) > 0, "Đơn không có số tiền hợp lệ")
     if not incoming:

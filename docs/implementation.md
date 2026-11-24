@@ -1,7 +1,7 @@
 # Trạng thái triển khai — 08/11/2026
 
 Ứng dụng đã nối React với API nghiệp vụ FastAPI. Database có 25 bảng và
-migration head `0008_user_avatar`. Mô tả dưới đây và OpenAPI `/api/docs` phản
+migration head `0011_booking_integrity`. Mô tả dưới đây và OpenAPI `/api/docs` phản
 ánh chức năng hiện tại; xem [kiểm tra code](code-review.md) về giới hạn vận hành.
 
 ## Tài khoản và xác thực

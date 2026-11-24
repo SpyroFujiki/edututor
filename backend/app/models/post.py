@@ -13,7 +13,7 @@ class Post(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     author_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     author_nickname: Mapped[str | None] = mapped_column(String)
-    author_avatar_url: Mapped[str | None] = mapped_column(String)
+    author_avatar_base64: Mapped[str | None] = mapped_column(Text)
     title: Mapped[str | None] = mapped_column(String)
     content: Mapped[str | None] = mapped_column(Text)
     min_role_level: Mapped[int | None] = mapped_column(Integer)

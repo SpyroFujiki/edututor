@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import HttpUrl
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.database import get_session
@@ -218,12 +218,14 @@ def subscribed_course(subscription_id: UUID, session: DB, user: Current):
 )
 def attendance(subscription_id: UUID, session: DB, user: Current):
     get_my_course_progress(session, subscription_id, user.id)
+    columns = Attendance.__table__.c
     return list(
-        session.scalars(
-            select(Attendance)
+        session.execute(
+            select(*columns, Lesson.course_id)
+            .join(Lesson)
             .where(Attendance.subscription_id == subscription_id)
             .order_by(Attendance.lesson_id)
-        )
+        ).mappings()
     )
 
 
@@ -510,7 +512,9 @@ def cash_orders(session: DB, user: Current, limit: Limit = 20, offset: Offset = 
     return page(
         session,
         select(CashOrder)
-        .where(CashOrder.user_id == user.id)
+        .join(CashOrder.wallet)
+        .options(contains_eager(CashOrder.wallet))
+        .where(Wallet.user_id == user.id)
         .order_by(CashOrder.created_at.desc(), CashOrder.id),
         limit,
         offset,
@@ -829,7 +833,9 @@ def assign(booking_id: UUID, payload: inputs.AssignInput, session: DB, admin: Ad
 def admin_cash_orders(session: DB, admin: Admin, limit: Limit = 20, offset: Offset = 0):
     return page(
         session,
-        select(CashOrder).order_by(CashOrder.created_at.desc(), CashOrder.id),
+        select(CashOrder)
+        .options(joinedload(CashOrder.wallet, innerjoin=True))
+        .order_by(CashOrder.created_at.desc(), CashOrder.id),
         limit,
         offset,
     )

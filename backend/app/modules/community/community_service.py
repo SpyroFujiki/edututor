@@ -29,6 +29,7 @@ def save_post(session, user_id, values, post_id=None):
             Post,
             author_id=user_id,
             author_nickname=f"Thành viên {str(user_id)[:8]}",
+            author_avatar_base64=user.avatar_base64,
             **values,
             is_hidden=False,
             created_at=now(),
@@ -162,7 +163,6 @@ def resolve_report(session, admin_id, report_id, approve, reason):
 
 def submit_role_request(session, user_id, values):
     user = actor(session, user_id, lock=True)
-    roles = tuple(UserRole)
     require(user.role is not None and user.role != UserRole.HEAD_ADMIN, "Không còn bậc để nâng")
     existing = session.scalar(
         select(RoleRequest).where(
@@ -175,7 +175,6 @@ def submit_role_request(session, user_id, values):
         RoleRequest,
         user_id=user_id,
         current_role_at_request=user.role,
-        question_set=roles.index(user.role) + 1,
         **values,
         status=RequestStatus.PENDING,
         priority=0,

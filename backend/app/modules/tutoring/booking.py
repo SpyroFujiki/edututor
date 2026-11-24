@@ -27,7 +27,7 @@ from app.models.enums import (
 from app.modules.common import ADMIN_ROLES, actor, add, audit, get, now, require
 from app.modules.finance.booking_settlement import pay_tutor_income, settle_booking
 from app.modules.finance.payments import lock_wallets, owned_wallet, platform_wallet, transfer
-from app.modules.tutoring.access import accessible_booking
+from app.modules.tutoring.access import accessible_booking, get_booking_subscription
 from app.modules.tutoring.booking_session import check_schedule, session_values
 
 
@@ -91,6 +91,7 @@ def pay_booking(session: Session, user_id: UUID, booking_id: UUID) -> Booking:
     booking = accessible_booking(session, user_id, booking_id, lock=True)
     require(booking.customer_id == user_id, "Chỉ người mua được thanh toán", PermissionError)
     if booking.subscription_id:
+        get_booking_subscription(session, booking)
         require(
             booking.status
             in {BookingStatus.CONFIRMED, BookingStatus.ASSIGNED, BookingStatus.COMPLETED},
@@ -187,14 +188,12 @@ def complete_booking(session: Session, user_id: UUID, booking_id: UUID) -> Booki
     )
     require(
         not session.scalar(
-            select(Dispute.id).where(
-                Dispute.booking_id == booking_id, Dispute.is_completed.is_(False)
-            )
+            select(Dispute.id).where(Dispute.booking_id == booking_id, Dispute.resolve_at.is_(None))
         ),
         "Còn tranh chấp",
     )
     settle_booking(session, user_id, booking.id)
-    subscription = get(session, UserSubscription, booking.subscription_id, lock=True)
+    subscription = get_booking_subscription(session, booking)
     booking.status, booking.last_updated = BookingStatus.COMPLETED, now()
     subscription.expired_at = now() + timedelta(days=365)
     return booking
@@ -206,13 +205,14 @@ def refund_booking(
     from app.modules.common import money
 
     money(amount)
-    subscription = get(session, UserSubscription, booking.subscription_id, lock=True)
-    require(0 < amount <= subscription.price_at_purchase, "Số hoàn không hợp lệ")
+    subscription = get_booking_subscription(session, booking)
     settlement = session.scalar(
         select(BookingSettlement)
         .where(BookingSettlement.booking_id == booking.id)
         .with_for_update()
     )
+    total = settlement.total_amount if settlement else subscription.price_at_purchase
+    require(0 < amount <= total, "Số hoàn không hợp lệ")
     destination = owned_wallet(session, booking.customer_id, require_active=False)
     platform_id = platform_wallet(session)
     wallet_ids = [platform_id, destination.id]
@@ -227,8 +227,8 @@ def refund_booking(
         wallet.updated_at = now()
         settlement.status = EscrowStatus.REFUNDED
         # Partial refund terminates the booking; remaining tutor income is paid now.
-        remaining = subscription.price_at_purchase - amount
-        income = remaining - remaining * settlement.commission_rate // 100
+        remaining = settlement.total_amount - amount
+        income = remaining - BookingSettlement.fee_for(remaining, settlement.commission_rate)
         if income:
             pay_tutor_income(session, wallet, income, subscription.id, admin_id)
     transfer(
@@ -262,7 +262,7 @@ def cancel_booking(session: Session, user_id: UUID, booking_id: UUID) -> Booking
         "Sau phân công, hãy mở tranh chấp",
     )
     if booking.subscription_id:
-        subscription = get(session, UserSubscription, booking.subscription_id)
+        subscription = get_booking_subscription(session, booking)
         if subscription.price_at_purchase:
             refund_booking(session, booking, subscription.price_at_purchase)
         else:

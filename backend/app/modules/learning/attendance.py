@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Attendance, Lesson
@@ -14,10 +14,7 @@ def list_my_attendance(session: Session, subscription_id: UUID, user_id: UUID) -
     return list(
         session.scalars(
             select(Attendance)
-            .join(
-                Lesson,
-                and_(Attendance.lesson_id == Lesson.id, Attendance.course_id == Lesson.course_id),
-            )
+            .join(Lesson)
             .where(Attendance.subscription_id == subscription_id)
             .order_by(Lesson.order_idx)
         )

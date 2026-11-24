@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Booking, BookingSession, BookingSettlement, Dispute, UserSubscription
+from app.models import Booking, BookingSession, BookingSettlement, Dispute
 from app.models.enums import (
     BookingSessionStatus,
     BookingStatus,
@@ -14,7 +14,7 @@ from app.models.enums import (
     SubscriptionStatus,
 )
 from app.modules.common import actor, add, audit, get, money, now, require
-from app.modules.tutoring.access import accessible_booking
+from app.modules.tutoring.access import accessible_booking, get_booking_subscription
 from app.modules.tutoring.booking import refund_booking
 
 
@@ -30,7 +30,7 @@ def open_dispute(session: Session, user_id: UUID, booking_id: UUID, reason: str)
     booking = accessible_booking(session, user_id, booking_id, lock=True)
     existing = session.scalar(select(Dispute).where(Dispute.booking_id == booking_id))
     if existing:
-        require(not existing.is_completed, "Tranh chấp của đơn đã được giải quyết")
+        require(existing.resolve_at is None, "Tranh chấp của đơn đã được giải quyết")
         return existing
     require(
         booking.status
@@ -56,7 +56,6 @@ def open_dispute(session: Session, user_id: UUID, booking_id: UUID, reason: str)
         booking_id=booking_id,
         raised_by_user_id=user_id,
         reason_category=reason.strip(),
-        is_completed=False,
         created_at=now(),
     )
 
@@ -83,7 +82,7 @@ def claim_dispute(session: Session, admin_id: UUID, dispute_id: UUID) -> Dispute
         "Không tự xử lý tranh chấp liên quan",
     )
     require(
-        not dispute.is_completed and dispute.admin_id in {None, admin_id},
+        dispute.resolve_at is None and dispute.admin_id in {None, admin_id},
         "Tranh chấp đã được nhận hoặc đóng",
     )
     dispute.admin_id = admin.id
@@ -113,9 +112,9 @@ def resolve_dispute(
         "Không tự xử lý tranh chấp liên quan",
         PermissionError,
     )
-    require(not dispute.is_completed, "Tranh chấp đã đóng")
+    require(dispute.resolve_at is None, "Tranh chấp đã đóng")
     require(booking.status == BookingStatus.DISPUTING, "Đơn không trong tranh chấp")
-    subscription = get(session, UserSubscription, booking.subscription_id)
+    subscription = get_booking_subscription(session, booking)
     if verdict == DisputeVerdict.REJECTED:
         require(refund_amount == 0, "Từ chối tranh chấp không kèm hoàn tiền")
         settled = session.scalar(
@@ -129,19 +128,17 @@ def resolve_dispute(
             else BookingStatus.CONFIRMED
         )
     else:
-        amount = (
-            subscription.price_at_purchase
-            if verdict == DisputeVerdict.REFUND_FULL
-            else refund_amount
+        settlement = session.scalar(
+            select(BookingSettlement)
+            .where(BookingSettlement.booking_id == booking.id)
+            .with_for_update()
         )
+        total = settlement.total_amount if settlement else subscription.price_at_purchase
+        amount = total if verdict == DisputeVerdict.REFUND_FULL else refund_amount
         if verdict == DisputeVerdict.REFUND_PARTIAL:
+            require(0 < amount < total, "Hoàn một phần phải nhỏ hơn tổng tiền")
             require(
-                0 < amount < subscription.price_at_purchase, "Hoàn một phần phải nhỏ hơn tổng tiền"
-            )
-            require(
-                session.scalar(
-                    select(BookingSettlement.id).where(BookingSettlement.booking_id == booking.id)
-                ),
+                settlement is not None,
                 "Chỉ hoàn một phần sau khi đã có quyết toán; đơn chưa hoàn thành có thể hoàn toàn bộ",
             )
         if amount:
@@ -150,11 +147,6 @@ def resolve_dispute(
             subscription.status, booking.status = (
                 SubscriptionStatus.CANCELLED,
                 BookingStatus.REFUNDED,
-            )
-            settlement = session.scalar(
-                select(BookingSettlement)
-                .where(BookingSettlement.booking_id == booking.id)
-                .with_for_update()
             )
             if settlement:
                 require(
@@ -170,7 +162,7 @@ def resolve_dispute(
             ):
                 row.status, row.updated_at = BookingSessionStatus.CANCELLED, now()
     booking.last_updated = now()
-    dispute.verdict, dispute.is_completed, dispute.resolve_at = verdict, True, now()
+    dispute.verdict, dispute.resolve_at = verdict, now()
     audit(
         session,
         admin,

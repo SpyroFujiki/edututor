@@ -211,13 +211,17 @@ class TutoringTests(DomainApiFixture):
         dispute = self.request(
             "POST", f"/bookings/{booking['id']}/dispute", {"reason_category": "Review"}
         )
+        self.assertFalse(dispute["is_completed"])
+        self.assertIsNone(dispute["resolve_at"])
         self.request("POST", f"/admin/disputes/{dispute['id']}/claim", who="admin")
-        self.request(
+        resolved = self.request(
             "POST",
             f"/admin/disputes/{dispute['id']}/decision",
             {"verdict": "rejected", "reason": "Resolved"},
             who="admin",
         )
+        self.assertTrue(resolved["is_completed"])
+        self.assertIsNotNone(resolved["resolve_at"])
         self.assertEqual(self.request("GET", f"/bookings/{booking['id']}")["status"], "confirmed")
         self.request(
             "POST", f"/bookings/{booking['id']}/dispute", {"reason_category": "Again"}, expected=400
