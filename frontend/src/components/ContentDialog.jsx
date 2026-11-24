@@ -38,12 +38,7 @@ export default function ContentDialog({ title, onClose, children, className = ''
       <div className="dialog-heading">
         <div className="dialog-heading-label">
           <span className="dialog-emblem" aria-hidden="true">
-            <span className="theme-light-only">
-              <Icon name="sprout" size={19} />
-            </span>
-            <span className="theme-dark-only">
-              <Icon name="orbit" size={19} />
-            </span>
+            <Icon name="folder" size={19} />
           </span>
           <span className="eyebrow" id={titleId}>
             {title}

@@ -4,7 +4,7 @@ export default function PageHeading({ eyebrow, title, description, icon = 'book'
   return (
     <div className="section-heading page-heading">
       <div className="page-heading-copy">
-        <p className="eyebrow">{eyebrow}</p>
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
         <h1>{title}</h1>
         {description && <p className="section-description">{description}</p>}
       </div>

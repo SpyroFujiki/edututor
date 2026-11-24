@@ -8,8 +8,8 @@ import { filterCollection } from './collection-utils.js'
 import CollectionToolbar from './CollectionToolbar.jsx'
 import ContentDialog from './ContentDialog.jsx'
 import Icon from './Icon.jsx'
-import { ThemeMotif } from './ThemeScene.jsx'
 import SiteLink from './SiteLink.jsx'
+import { navigate } from '../navigation.js'
 import PageHeading from './PageHeading.jsx'
 import { formatDuration } from '../services/watch-time.js'
 import { learningProgress } from '../services/learning-progress.js'
@@ -30,6 +30,16 @@ const sortOptions = [
   ['price_desc', 'Giá giảm dần'],
   ['name', 'Tên A → Z'],
 ]
+const featuredFilters = {
+  all: { label: 'Tất cả' },
+  video: { label: 'Video', format: 'video' },
+  live: { label: 'Trực tiếp', format: 'live' },
+  free: { label: 'Miễn phí', price: 'free' },
+}
+
+function initialOption(options, searchValue) {
+  return options.some(([value]) => value === searchValue) ? searchValue : options[0][0]
+}
 
 export function CourseCover({ course, index = 0 }) {
   const title = (course.title ?? '').toLowerCase()
@@ -37,65 +47,73 @@ export function CourseCover({ course, index = 0 }) {
     ? 'Py'
     : /toán|math/.test(title)
       ? '∑'
-      : /anh|english|ngữ/.test(title)
+      : /tiếng anh|english|ngoại ngữ/.test(title)
         ? 'Aa'
-        : '{ }'
+        : null
   return (
-    <div className={`course-cover cover-${index % 4}`}>
-      <ThemeMotif />
-      <span className="cover-label">
-        {course.is_live ? 'KẾT NỐI CÙNG GIẢNG VIÊN' : 'KHÁM PHÁ THEO NHỊP RIÊNG'}
-      </span>
+    <div className={`course-cover cover-${index % 4}`} aria-hidden="true">
       <span className="cover-icon">
-        <Icon name={course.is_live ? 'users' : 'code'} size={24} />
+        <Icon name={course.is_live ? 'users' : 'video'} size={21} />
       </span>
-      <span className="cover-symbol" aria-hidden="true">
-        {symbol}
+      <span className="cover-symbol">
+        {symbol ?? <Icon name={course.is_live ? 'calendar' : 'book'} size={64} />}
       </span>
     </div>
   )
 }
 
-export function Catalog({ api, user, onLogin, onPurchased, featured = false }) {
-  const [query, setQuery] = useState('')
-  const [format, setFormat] = useState('all')
-  const [price, setPrice] = useState('all')
-  const [sort, setSort] = useState('newest')
+export function Catalog({ api, user, onLogin, onPurchased, featured = false, initialSearch = '' }) {
+  const params = new URLSearchParams(initialSearch)
+  const [query, setQuery] = useState(() => (params.get('q') ?? '').slice(0, 200))
+  const [format, setFormat] = useState(() => initialOption(formatOptions, params.get('format')))
+  const [price, setPrice] = useState(() => initialOption(priceOptions, params.get('price')))
+  const [sort, setSort] = useState(() => initialOption(sortOptions, params.get('sort')))
+  const [featuredFilter, setFeaturedFilter] = useState('all')
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState(null)
   const resource = useCollection(api, '/courses')
-  const rows = filterCollection(resource.data ?? [], { query, format, price, sort })
+  const filters = featured ? featuredFilters[featuredFilter] : { query, format, price, sort }
+  const rows = filterCollection(resource.data ?? [], { sort, ...filters })
   const visible = featured ? rows.slice(0, 3) : rows.slice(offset, offset + 9)
   const change = (setter) => (value) => {
     setter(value)
     setOffset(0)
   }
   const reset = () => {
+    if (featured) {
+      setFeaturedFilter('all')
+      return
+    }
     setQuery('')
     setFormat('all')
     setPrice('all')
     setSort('newest')
     setOffset(0)
+    if (initialSearch) navigate('/courses', { replace: true })
   }
   return (
-    <section className={featured ? 'featured-catalog' : 'catalog-page'}>
+    <section
+      className={featured ? 'featured-catalog' : 'catalog-page'}
+      aria-labelledby="catalog-title"
+    >
       <div className="section-heading">
         <div>
-          <p className="eyebrow">
-            {featured ? 'MỞ RA NHỮNG KHẢ NĂNG MỚI' : 'HỌC THEO NHỊP CỦA BẠN'}
-          </p>
           {featured ? (
-            <h2 className="section-title">Bước tiếp theo, bạn muốn học gì?</h2>
+            <h2 className="section-title" id="catalog-title">
+              Khóa học mới
+            </h2>
           ) : (
-            <h1>Khám phá khóa học</h1>
+            <h1 id="catalog-title">Khám phá khóa học</h1>
           )}
-          <p className="section-description">
-            Chọn điều bạn quan tâm. Tìm hiểu nội dung và bắt đầu từ nền tảng.
-          </p>
+          {!featured && (
+            <p className="section-description">
+              Tìm khóa học theo chủ đề, hình thức học hoặc học phí.
+            </p>
+          )}
         </div>
         {featured ? (
           <SiteLink href="/courses" className="button">
-            Tất cả khóa học
+            Xem tất cả
             <Icon name="arrow" size={16} />
           </SiteLink>
         ) : (
@@ -104,6 +122,20 @@ export function Catalog({ api, user, onLogin, onPurchased, featured = false }) {
           </span>
         )}
       </div>
+      {featured && (
+        <div className="featured-filters" role="group" aria-label="Lọc khóa học mới">
+          {Object.entries(featuredFilters).map(([value, { label }]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={featuredFilter === value}
+              onClick={() => setFeaturedFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {!featured && (
         <CollectionToolbar
           query={query}
@@ -147,13 +179,11 @@ export function Catalog({ api, user, onLogin, onPurchased, featured = false }) {
                       <div className="course-meta">
                         <Icon name={course.is_live ? 'users' : 'video'} size={14} />
                         {course.is_live ? 'Lớp học trực tiếp' : 'Khóa học video'}
-                        <span className="dot-separator">·</span>EduTutor
                       </div>
                       <h2>{course.title}</h2>
-                      <p className="content-preview">
-                        {course.description ||
-                          'Khám phá nội dung khóa học và bắt đầu hành trình học tập của bạn.'}
-                      </p>
+                      {course.description && (
+                        <p className="content-preview">{course.description}</p>
+                      )}
                       <div className="card-bottom">
                         <strong className="course-price">
                           {Number(course.price) === 0 ? (
@@ -165,8 +195,12 @@ export function Catalog({ api, user, onLogin, onPurchased, featured = false }) {
                             </>
                           )}
                         </strong>
-                        <button className="card-link" onClick={() => setSelected(course)}>
-                          Xem khóa học
+                        <button
+                          className="card-link"
+                          aria-label={`Xem chi tiết ${course.title}`}
+                          onClick={() => setSelected(course)}
+                        >
+                          Xem chi tiết
                           <Icon name="arrow" size={15} />
                         </button>
                       </div>
@@ -279,13 +313,12 @@ export function MyLearning({ api }) {
   return (
     <section className="learning-page">
       <PageHeading
-        eyebrow="MỖI NGÀY MỘT BƯỚC TIẾN"
         title="Việc học của tôi"
-        description="Tiếp tục từ nơi bạn dừng lại. Khóa học, bài giảng và kết quả học tập ở ngay đây."
+        description="Mở bài giảng, xem tiến độ và kiểm tra các gói đã đăng ký."
         icon="book"
       >
-        <SiteLink className="button" href="/purchases">
-          <Icon name="clock" size={17} /> Lịch sử mua dịch vụ
+        <SiteLink className="button primary" href="/courses">
+          <Icon name="search" size={17} /> Tìm khóa học
         </SiteLink>
       </PageHeading>
       <Resource resource={resource} empty="Bạn chưa đăng ký khóa học hoặc gói gia sư.">

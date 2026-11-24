@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import Icon from './Icon.jsx'
 import SiteLink from './SiteLink.jsx'
-import ThemeScene from './ThemeScene.jsx'
 
 export default function AuthPage({ mode, expired, next, onAuthenticate }) {
   const register = mode === 'register'
@@ -40,33 +39,8 @@ export default function AuthPage({ mode, expired, next, onAuthenticate }) {
   return (
     <section className="auth-page">
       <aside className="auth-story">
-        <span className="story-tag">
-          <Icon name="spark" size={16} />
-          KHỞI ĐẦU TỪ SỰ TÒ MÒ
-        </span>
-        <h2>
-          Một tài khoản.
-          <br />
-          Nhiều cơ hội
-          <br />
-          <span>để tiến xa.</span>
-        </h2>
-        <p>Khóa học bạn yêu thích, người hướng dẫn phù hợp và một cộng đồng cùng tiến bộ.</p>
-        <ThemeScene className="auth-scene" />
-        <ul className="auth-benefits">
-          <li>
-            <Icon name="check" size={17} />
-            Học theo nhịp của riêng bạn
-          </li>
-          <li>
-            <Icon name="check" size={17} />
-            Theo dõi việc học trong một không gian
-          </li>
-          <li>
-            <Icon name="check" size={17} />
-            Kết nối và trao đổi cùng gia sư
-          </li>
-        </ul>
+        <h2>Việc học trong một tài khoản</h2>
+        <p>Tiếp tục bài giảng, theo dõi tiến độ và xem lịch học cùng gia sư.</p>
       </aside>
       <div className="auth-form-panel">
         <SiteLink href="/" className="back-link">
@@ -77,12 +51,11 @@ export default function AuthPage({ mode, expired, next, onAuthenticate }) {
           <div className="auth-form-icon">
             <Icon name={register ? 'cap' : 'book'} size={27} />
           </div>
-          <p className="eyebrow">KHÔNG GIAN HỌC TẬP CỦA BẠN</p>
-          <h1>{register ? 'Bắt đầu hành trình.' : 'Chào mừng trở lại.'}</h1>
+          <h1>{register ? 'Tạo tài khoản' : 'Đăng nhập'}</h1>
           <p className="auth-description">
             {register
-              ? 'Tạo tài khoản để khám phá và lưu giữ từng bước tiến.'
-              : 'Đăng nhập để tiếp tục những điều bạn đang khám phá.'}
+              ? 'Tham gia EduTutor để lưu tiến độ và đặt lịch học với gia sư.'
+              : 'Đăng nhập vào tài khoản EduTutor của bạn.'}
           </p>
           {expired && !register && (
             <p className="notice error" role="alert">
@@ -179,11 +152,10 @@ export default function AuthPage({ mode, expired, next, onAuthenticate }) {
                     <span className="spinner" />
                     Đang xử lý…
                   </>
+                ) : register ? (
+                  'Tạo tài khoản'
                 ) : (
-                  <>
-                    {register ? 'Tạo tài khoản' : 'Đăng nhập'}
-                    <Icon name="arrow" size={18} />
-                  </>
+                  'Đăng nhập'
                 )}
               </button>
             </fieldset>

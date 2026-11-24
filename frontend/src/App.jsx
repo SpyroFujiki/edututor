@@ -25,6 +25,7 @@ import Admin from './components/Admin.jsx'
 import PaymentReturn from './components/PaymentReturn.jsx'
 import './App.css'
 import './themes.css'
+import './workspace.css'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -100,7 +101,7 @@ function App() {
     document.documentElement.style.colorScheme = theme
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#001f3f' : '#247447')
+      ?.setAttribute('content', theme === 'dark' ? '#101728' : '#3548cf')
     document
       .querySelector('link[rel="icon"]')
       ?.setAttribute('href', theme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg')
@@ -166,6 +167,7 @@ function App() {
         key={location}
         user={user}
         pathname={pathname}
+        courseQuery={route.page === 'catalog' ? (new URLSearchParams(search).get('q') ?? '') : ''}
         theme={theme}
         onThemeChange={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         onLogout={async () => {
@@ -248,8 +250,10 @@ function App() {
               )}
               {route.page === 'catalog' && (
                 <Catalog
+                  key={search}
                   api={api}
                   user={user}
+                  initialSearch={search}
                   onLogin={() => onLogin(location)}
                   onPurchased={onPurchased}
                 />

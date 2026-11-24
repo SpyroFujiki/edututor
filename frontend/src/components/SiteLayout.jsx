@@ -6,6 +6,7 @@ import SiteLink from './SiteLink.jsx'
 import Dropdown from './Dropdown.jsx'
 import Avatar from './Avatar.jsx'
 import { adminGroups, adminHref } from '../admin-navigation.js'
+import { navigate } from '../navigation.js'
 
 const publicLinks = [
   ['/', 'Trang chủ'],
@@ -13,14 +14,25 @@ const publicLinks = [
   ['/tutoring', 'Gia sư'],
   ['/community', 'Cộng đồng'],
 ]
-const workspaceLinks = [
-  ['/learning', 'book', 'Việc học'],
-  ['/tutoring', 'calendar', 'Gia sư & lịch học'],
-  ['/wallet', 'wallet', 'Ví & thanh toán'],
-  ['/purchases', 'clock', 'Lịch sử mua dịch vụ'],
-  ['/disputes', 'shield', 'Tranh chấp'],
-  ['/account', 'settings', 'Tài khoản'],
+const workspaceGroups = [
+  {
+    label: 'Học tập',
+    links: [
+      ['/learning', 'book', 'Việc học'],
+      ['/tutoring', 'calendar', 'Gia sư & lịch học'],
+    ],
+  },
+  {
+    label: 'Tài khoản & giao dịch',
+    links: [
+      ['/wallet', 'wallet', 'Ví & thanh toán'],
+      ['/purchases', 'clock', 'Lịch sử mua dịch vụ'],
+      ['/disputes', 'shield', 'Tranh chấp'],
+      ['/account', 'settings', 'Tài khoản'],
+    ],
+  },
 ]
+const workspaceLinks = workspaceGroups.flatMap((group) => group.links)
 
 export function Brand() {
   return (
@@ -30,20 +42,44 @@ export function Brand() {
       </span>
       <span>
         Edu<span className="brand-accent">Tutor</span>
-        <small>HỌC HÔM NAY. TIẾN XA NGÀY MAI.</small>
       </span>
     </SiteLink>
   )
 }
 
-export function Header({ user, pathname, theme, onThemeChange, onLogout }) {
+function CourseSearch({ query, onSearch }) {
+  function submit(event) {
+    event.preventDefault()
+    const value = new FormData(event.currentTarget).get('q').trim()
+    navigate(value ? `/courses?${new URLSearchParams({ q: value })}` : '/courses')
+    onSearch?.()
+  }
+
+  return (
+    <form className="header-search" role="search" aria-label="Tìm khóa học" onSubmit={submit}>
+      <input
+        aria-label="Tên hoặc nội dung khóa học"
+        type="search"
+        name="q"
+        placeholder="Tìm khóa học…"
+        defaultValue={query}
+        maxLength={200}
+      />
+      <button type="submit" className="icon-button" aria-label="Tìm khóa học">
+        <Icon name="search" size={19} />
+      </button>
+    </form>
+  )
+}
+
+export function Header({ user, pathname, courseQuery, theme, onThemeChange, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
     <header className="site-header">
       <div className="header-inner container">
         <Brand />
         <nav className="desktop-nav" aria-label="Điều hướng chính">
-          {publicLinks.map(([href, label]) => (
+          {publicLinks.slice(1).map(([href, label]) => (
             <SiteLink href={href} key={href} aria-current={pathname === href ? 'page' : undefined}>
               {label}
             </SiteLink>
@@ -75,6 +111,9 @@ export function Header({ user, pathname, theme, onThemeChange, onLogout }) {
             </Dropdown>
           )}
         </nav>
+        <div className="desktop-search">
+          <CourseSearch query={courseQuery} />
+        </div>
         <div className="header-actions">
           <button
             type="button"
@@ -83,9 +122,9 @@ export function Header({ user, pathname, theme, onThemeChange, onLogout }) {
             aria-label={
               theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'
             }
-            title={theme === 'dark' ? 'Ươm mầm · Giao diện sáng' : 'Vũ trụ · Giao diện tối'}
+            title={theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'}
           >
-            <Icon name={theme === 'dark' ? 'sprout' : 'orbit'} />
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
           </button>
           {user ? (
             <Dropdown
@@ -134,8 +173,7 @@ export function Header({ user, pathname, theme, onThemeChange, onLogout }) {
                 Đăng nhập
               </SiteLink>
               <SiteLink href="/register" className="button primary button-sm">
-                Bắt đầu học
-                <Icon name="arrow" size={16} />
+                Tạo tài khoản
               </SiteLink>
             </div>
           )}
@@ -157,6 +195,7 @@ export function Header({ user, pathname, theme, onThemeChange, onLogout }) {
           className="mobile-nav container"
           aria-label="Điều hướng trên điện thoại"
         >
+          <CourseSearch query={courseQuery} onSearch={() => setMenuOpen(false)} />
           {publicLinks.map(([href, label]) => (
             <SiteLink
               key={href}
@@ -170,8 +209,12 @@ export function Header({ user, pathname, theme, onThemeChange, onLogout }) {
           ))}
           {!user && (
             <>
-              <SiteLink href="/login">Đăng nhập</SiteLink>
-              <SiteLink href="/register">Tạo tài khoản</SiteLink>
+              <SiteLink href="/login" onClick={() => setMenuOpen(false)}>
+                Đăng nhập
+              </SiteLink>
+              <SiteLink href="/register" onClick={() => setMenuOpen(false)}>
+                Tạo tài khoản
+              </SiteLink>
             </>
           )}
         </nav>
@@ -184,12 +227,20 @@ export function WorkspaceNav({ user, pathname, adminSection }) {
   return (
     <aside className="workspace-nav">
       <nav className="container workspace-nav-inner" aria-label="Không gian cá nhân">
-        <span className="workspace-label">KHÔNG GIAN CỦA BẠN</span>
-        {workspaceLinks.map(([href, icon, label]) => (
-          <SiteLink key={href} href={href} aria-current={pathname === href ? 'page' : undefined}>
-            <Icon name={icon} size={17} />
-            {label}
-          </SiteLink>
+        {workspaceGroups.map((group) => (
+          <div className="workspace-nav-group" key={group.label}>
+            <p className="workspace-label">{group.label}</p>
+            {group.links.map(([href, icon, label]) => (
+              <SiteLink
+                key={href}
+                href={href}
+                aria-current={pathname === href ? 'page' : undefined}
+              >
+                <Icon name={icon} size={17} />
+                {label}
+              </SiteLink>
+            ))}
+          </div>
         ))}
         {isAdmin(user) && (
           <SiteLink href="/admin" aria-current={pathname === '/admin' ? 'page' : undefined}>
@@ -237,28 +288,16 @@ export function Footer() {
       <div className="container footer-top">
         <div>
           <Brand />
-          <p>
-            Mỗi ngày một điều mới.
-            <br />
-            Mỗi bước tiến một tương lai.
-          </p>
+          <p>Nền tảng khóa học, gia sư và cộng đồng học tập.</p>
         </div>
         <nav aria-label="Liên kết cuối trang">
           <SiteLink href="/courses">Khám phá khóa học</SiteLink>
           <SiteLink href="/tutoring">Tìm gia sư đồng hành</SiteLink>
           <SiteLink href="/community">Kết nối cộng đồng</SiteLink>
         </nav>
-        <div className="footer-note">
-          <span className="online-dot" />
-          Sẵn sàng cho bước tiến của bạn.<small>Học hôm nay, mở ngày mai.</small>
-        </div>
       </div>
       <div className="container footer-bottom">
         <span>© {new Date().getFullYear()} EduTutor</span>
-        <span>
-          Được xây dựng cho những người luôn muốn học hỏi.
-          <Icon name="spark" size={14} />
-        </span>
       </div>
     </footer>
   )

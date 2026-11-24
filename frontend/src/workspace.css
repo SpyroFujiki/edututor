@@ -1,0 +1,319 @@
+.workspace-layout > .main-content {
+  max-width: 96rem;
+  margin-inline: auto;
+}
+
+.workspace-layout .workspace-nav {
+  background: var(--surface);
+  scrollbar-gutter: stable;
+}
+
+.workspace-layout .workspace-nav-inner {
+  gap: 15px;
+  padding: 24px 12px 22px 16px;
+}
+
+.workspace-nav-group {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-layout .workspace-label {
+  display: block;
+  padding: 0 10px 5px;
+  color: var(--subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+.workspace-layout .workspace-nav a {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.workspace-layout .workspace-nav a:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+  transform: none;
+}
+
+.workspace-layout .workspace-nav a[aria-current] {
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.workspace-layout .workspace-nav a[aria-current] .icon {
+  stroke-width: 2;
+}
+
+.admin-sidebar {
+  margin-inline: 16px 12px;
+  padding: 12px 0 24px;
+}
+
+.admin-sidebar details {
+  margin: 0;
+}
+
+.admin-sidebar details[open] > summary {
+  margin-bottom: 4px;
+}
+
+.admin-sidebar summary {
+  min-height: 42px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.admin-sidebar summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.admin-sidebar details[open] > summary::after {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.admin-sidebar summary:hover,
+.admin-sidebar details[open] > summary {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.workspace-layout .admin-sidebar details > a {
+  min-height: 38px;
+  margin-block: 2px;
+  margin-inline-start: 8px;
+  padding: 8px;
+  font-size: 0.8125rem;
+}
+
+.workspace-layout .page-heading {
+  gap: 20px;
+}
+
+.workspace-layout .page-heading > :is(button, .button) {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding-inline: 14px;
+  font-size: 0.875rem;
+}
+
+.admin-page-header {
+  margin-bottom: 22px;
+  padding: clamp(18px, 3cqi, 30px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(130deg, var(--surface), var(--surface-soft));
+}
+
+.admin-page-header h1 {
+  font-size: clamp(1.625rem, 4cqi, 2.25rem);
+}
+
+.admin-page-header p:not(.eyebrow) {
+  font-size: 0.875rem;
+}
+
+.admin-profile {
+  flex-shrink: 0;
+  max-width: 32%;
+  padding-inline-start: 20px;
+  border-inline-start: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.audit-filter-form,
+.data-table-scroll {
+  border-radius: 12px;
+}
+
+.data-table {
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  font-size: 0.8125rem;
+}
+
+.data-table tbody tr:nth-child(even):not(:hover) {
+  background: color-mix(in srgb, var(--surface-soft) 35%, var(--surface));
+}
+
+.learning-page .card-body > h2 {
+  margin-block: 10px 0;
+}
+
+.workspace-layout .learning-page .page-heading {
+  padding: clamp(18px, 3cqi, 30px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(120deg, var(--accent-soft), var(--surface) 72%);
+}
+
+.lesson-list {
+  padding: 8px;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.lesson-list button {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.lesson-list button[aria-current] {
+  padding-inline-start: 10px;
+}
+
+.lesson-list progress {
+  height: 6px;
+  margin-top: 3px;
+}
+
+.lesson-stage :is(.lesson-video, .youtube-player, .youtube-iframe) {
+  border-radius: 10px;
+}
+
+.wallet-page > .card-grid:has(> .wallet-card) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  max-width: 54rem;
+}
+
+.wallet-card {
+  --wallet-bg: #263884;
+  --wallet-highlight: #4159ac;
+  --wallet-text: #f4f6ff;
+  --wallet-muted: #e0e6ff;
+  --wallet-line: #ffffff30;
+  width: 100%;
+  max-width: 26rem;
+  padding: clamp(20px, 3cqi, 28px);
+  border: 0;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at top right, var(--wallet-highlight), var(--wallet-bg) 70%);
+  color: var(--wallet-text);
+}
+
+[data-theme='dark'] .wallet-card {
+  --wallet-bg: #18254c;
+  --wallet-highlight: #34477b;
+  --wallet-text: #f0f4ff;
+  --wallet-muted: #d3def7;
+}
+
+.wallet-card::before {
+  opacity: 0.4;
+  border-color: var(--wallet-line);
+  border-radius: 50%;
+}
+
+.wallet-card .balance {
+  font-size: clamp(2rem, 4cqi, 2.75rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-card :is(.details dt, small) {
+  color: var(--wallet-muted);
+}
+
+.wallet-card :is(.details dd, .badge, button) {
+  color: var(--wallet-text);
+}
+
+.wallet-card :is(.details, .badge, button) {
+  border-color: var(--wallet-line);
+}
+
+.wallet-card :is(.badge, button) {
+  background: #ffffff14;
+}
+
+.wallet-card button:hover {
+  background: #ffffff25;
+}
+
+.wallet-card button:focus-visible {
+  outline-color: var(--wallet-text);
+}
+
+.payment-method {
+  border-radius: 12px;
+}
+
+.payment-method small {
+  color: var(--muted);
+}
+
+@container page (max-width: 36rem) {
+  .workspace-layout .card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container page (max-width: 32rem) {
+  .workspace-layout .page-heading:has(> :is(button, .button)) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .admin-page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .admin-profile {
+    max-width: 100%;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+    text-align: start;
+  }
+}
+
+@media (max-width: 700px) {
+  .workspace-layout .workspace-nav {
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .workspace-layout .workspace-nav-inner {
+    gap: 4px;
+    padding: 8px 16px;
+  }
+
+  .workspace-nav-group {
+    display: contents;
+  }
+
+  .workspace-layout .workspace-label {
+    display: none;
+  }
+
+  .workspace-layout .workspace-nav a {
+    padding-inline: 8px;
+    font-size: 0.8125rem;
+  }
+
+  .admin-sidebar {
+    gap: 0 6px;
+    margin-inline: 16px;
+    padding-bottom: 10px;
+  }
+}

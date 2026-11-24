@@ -93,6 +93,11 @@ const paths = {
       <path d="M7 3v4m10-4v4M3 11h18m-14 4h3m4 0h3" />
     </>
   ),
+  gift: (
+    <>
+      <path d="M3 8h18v4H3zM5 12v8h14v-8M12 8v12m0-12H8.5A2.5 2.5 0 1 1 11 5.5L12 8Zm0 0h3.5A2.5 2.5 0 1 0 13 5.5L12 8Z" />
+    </>
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />
